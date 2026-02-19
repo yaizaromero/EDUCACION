@@ -15,6 +15,11 @@ st.set_page_config(page_title="PALABRIA", layout="centered")
 PRETTY = {
     "total_frases": "Total de frases",
     "frases_con_tu_impersonal": "Posibles frases con 'tú' impersonal",
+    "errores_b_v": "Errores de B vs V",
+    "errores_g_j": "Errores de G vs J",
+    "errores_y_ll": "Errores de Y vs LL",
+    "errores_h": "Errores de H",
+    "errores_tildes": "Errores de tildes",
     "cambios_propuestos_modelo": "Cambios propuestos (modelo)",
     "cambios_realizados_usuario": "Cambios realizados (usuario)",
 }
@@ -873,9 +878,24 @@ def main_app():
 
             if metricas:
                 st.markdown("<h2 class='h-section'>📊 Métricas del texto actual</h2>", unsafe_allow_html=True)
+                
+                # Primera fila
                 col1, col2 = st.columns(2, gap="medium")
                 col1.metric("Total de frases", metricas.get("total_frases", 0))
                 col2.metric("Posibles frases con 'tú' impersonal", metricas.get("frases_con_tu_impersonal", 0))
+                
+                # Segunda fila: Ortografía
+                col_o1, col_o2, col_o3 = st.columns(3, gap="medium")
+                col_o1.metric("Errores B/V", metricas.get("errores_b_v", 0))
+                col_o2.metric("Errores G/J", metricas.get("errores_g_j", 0))
+                col_o3.metric("Errores Y/LL", metricas.get("errores_y_ll", 0))
+                
+                # Tercera fila: Ortografía (cont.)
+                col_o4, col_o5, _ = st.columns(3, gap="medium")
+                col_o4.metric("Errores de H", metricas.get("errores_h", 0))
+                col_o5.metric("Errores de Tildes", metricas.get("errores_tildes", 0))
+
+                # Cuarta fila: Cambios
                 col3, col4 = st.columns(2, gap="medium")
                 col3.metric("Cambios propuestos (modelo)", metricas.get("cambios_propuestos_modelo", 0))
                 col4.metric("Cambios realizados (usuario)", cambios_usuario_total)

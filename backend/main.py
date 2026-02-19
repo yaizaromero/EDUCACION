@@ -120,6 +120,12 @@ async def process_pdf(
 
     corrected_text = model.correct_full_text(original_text)
     feedback = model.generate_feedback(original_text, corrected_text)
+    feedback_lower = feedback.lower()
+    conteo_b_v = feedback_lower.count("b vs v") + feedback_lower.count(" b ") + feedback_lower.count(" v ")
+    conteo_g_j = feedback_lower.count("g vs j") + feedback_lower.count(" g ") + feedback_lower.count(" j ")
+    conteo_y_ll = feedback_lower.count("y vs ll") + feedback_lower.count(" y ") + feedback_lower.count(" ll ")
+    conteo_h = feedback_lower.count("uso de h") + feedback_lower.count("letra h") + feedback_lower.count("omisión de h")
+    conteo_tildes = feedback_lower.count("tilde") + feedback_lower.count("acentuación") + feedback_lower.count("acento")
 
     sentences = split_into_sentences(original_text)
     total_frases = len(sentences)
@@ -174,6 +180,12 @@ async def process_text(
 
     corrected_text = model.correct_full_text(original_text)
     feedback = model.generate_feedback(original_text, corrected_text)
+    feedback_lower = feedback.lower()
+    conteo_b_v = feedback_lower.count("b vs v") + feedback_lower.count(" b ") + feedback_lower.count(" v ")
+    conteo_g_j = feedback_lower.count("g vs j") + feedback_lower.count(" g ") + feedback_lower.count(" j ")
+    conteo_y_ll = feedback_lower.count("y vs ll") + feedback_lower.count(" y ") + feedback_lower.count(" ll ")
+    conteo_h = feedback_lower.count("uso de h") + feedback_lower.count("letra h") + feedback_lower.count("omisión de h")
+    conteo_tildes = feedback_lower.count("tilde") + feedback_lower.count("acentuación") + feedback_lower.count("acento")
 
     sentences = split_into_sentences(original_text)
     total_frases = len(sentences)
@@ -185,6 +197,15 @@ async def process_text(
 
     insert_metric(doc_id, "total_frases", float(total_frases))
     insert_metric(doc_id, "frases_con_tu_impersonal", float(total_errores))
+    insert_metric(doc_id, "cambios_propuestos_modelo", float(cambios_modelo_total))
+    insert_metric(doc_id, "cambios_realizados_usuario", float(cambios_modelo_total))
+    insert_metric(doc_id, "total_frases", float(total_frases))
+    insert_metric(doc_id, "frases_con_tu_impersonal", float(total_errores))
+    insert_metric(doc_id, "errores_b_v", float(conteo_b_v))
+    insert_metric(doc_id, "errores_g_j", float(conteo_g_j))
+    insert_metric(doc_id, "errores_y_ll", float(conteo_y_ll))
+    insert_metric(doc_id, "errores_h", float(conteo_h))
+    insert_metric(doc_id, "errores_tildes", float(conteo_tildes))
     insert_metric(doc_id, "cambios_propuestos_modelo", float(cambios_modelo_total))
     insert_metric(doc_id, "cambios_realizados_usuario", float(cambios_modelo_total))
 
