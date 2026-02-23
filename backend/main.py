@@ -1,11 +1,12 @@
 # backend/main.py
+
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import hashlib
 import time
 
 import backend.model as model
-from backend.metrics import _normalize_for_diff, word_levenshtein_count
+from backend.metrics import compute_metrics
 from backend.utils import extract_text_from_pdf, split_into_sentences, posible_tu_impersonal
 from backend.db import (
     init_db, user_exists, create_user, get_user_id,
@@ -36,130 +37,48 @@ def check_status():
         "message": model.LOAD_MESSAGE,
     }
 
+
 @app.post("/load/")
 def trigger_load():
     model.ensure_model_loaded(async_load=True)
     return {"ok": True}
 
+
 @app.post("/users/create")
 def user_create(username: str = Form(...)):
-    try:
-        username = sanitize_username(username)
-        if user_exists(username):
-            raise HTTPException(status_code=409, detail="El usuario ya existe. Elige otro nombre.")
-        uid = create_user(username)
-        record_usage(uid, "login", None)
-        record_login_ts(uid, time.time())
-        return {"ok": True, "user_id": uid, "username": username}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    username = sanitize_username(username)
+    if user_exists(username):
+        raise HTTPException(status_code=409, detail="El usuario ya existe.")
+    uid = create_user(username)
+    record_usage(uid, "login", None)
+    record_login_ts(uid, time.time())
+    return {"ok": True, "user_id": uid, "username": username}
+
 
 @app.post("/users/login")
 def user_login(username: str = Form(...)):
-    try:
-        username = sanitize_username(username)
-        uid = get_user_id(username)
-        if uid is None:
-            raise HTTPException(status_code=404, detail="La cuenta no existe. Crea una nueva.")
-        record_usage(uid, "login", None)
-        record_login_ts(uid, time.time())
-        return {"ok": True, "user_id": uid, "username": username}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-@app.post("/users/logout")
-def user_logout(username: str = Form(...)):
-    try:
-        username = sanitize_username(username)
-        uid = get_user_id(username)
-        if uid is None:
-            raise HTTPException(status_code=404, detail="Usuario no válido.")
-        close_open_session(uid, time.time())
-        return {"ok": True}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-@app.post("/users/heartbeat")
-def user_heartbeat(username: str = Form(...)):
-    try:
-        username = sanitize_username(username)
-        uid = get_user_id(username)
-        if uid is None:
-            raise HTTPException(status_code=404, detail="Usuario no válido.")
-        now = time.time()
-        record_usage(uid, "heartbeat", now)
-        close_open_session(uid, now_epoch=now, idle_secs=1800)
-        return {"ok": True}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-@app.post("/process/")
-async def process_pdf(
-    file: UploadFile = File(...),
-    username: str = Form(...),
-):
     username = sanitize_username(username)
     uid = get_user_id(username)
     if uid is None:
-        raise HTTPException(status_code=403, detail="Usuario no válido. Inicia sesión con una cuenta existente.")
+        raise HTTPException(status_code=404, detail="La cuenta no existe.")
+    record_usage(uid, "login", None)
+    record_login_ts(uid, time.time())
+    return {"ok": True, "user_id": uid, "username": username}
 
-    content = await file.read()
-    original_text = extract_text_from_pdf(content)
 
-    errores_posibles, _ = posible_tu_impersonal(original_text)
-    if not isinstance(errores_posibles, list):
-        errores_posibles = []
+@app.post("/users/logout")
+def user_logout(username: str = Form(...)):
+    username = sanitize_username(username)
+    uid = get_user_id(username)
+    if uid is None:
+        raise HTTPException(status_code=404, detail="Usuario no válido.")
+    close_open_session(uid, time.time())
+    return {"ok": True}
 
-    corrected_text = model.correct_full_text(original_text)
-    feedback = model.generate_feedback(original_text, corrected_text)
-    feedback_lower = feedback.lower()
-    conteo_b_v = feedback_lower.count("b vs v") + feedback_lower.count(" b ") + feedback_lower.count(" v ")
-    conteo_g_j = feedback_lower.count("g vs j") + feedback_lower.count(" g ") + feedback_lower.count(" j ")
-    conteo_y_ll = feedback_lower.count("y vs ll") + feedback_lower.count(" y ") + feedback_lower.count(" ll ")
-    conteo_h = feedback_lower.count("uso de h") + feedback_lower.count("letra h") + feedback_lower.count("omisión de h")
-    conteo_tildes = feedback_lower.count("tilde") + feedback_lower.count("acentuación") + feedback_lower.count("acento")
 
-    sentences = split_into_sentences(original_text)
-    total_frases = len(sentences)
-    total_errores = len(errores_posibles)
-    cambios_modelo_total = word_levenshtein_count(original_text, corrected_text)
-
-    text_hash = hashlib.sha256((original_text or "").encode("utf-8")).hexdigest()
-    doc_id = create_document(uid, file.filename, text_hash)
-
-    insert_metric(doc_id, "total_frases", float(total_frases))
-    insert_metric(doc_id, "frases_con_tu_impersonal", float(total_errores))
-    insert_metric(doc_id, "cambios_propuestos_modelo", float(cambios_modelo_total))
-    insert_metric(doc_id, "cambios_realizados_usuario", float(cambios_modelo_total))
-
-    record_usage(uid, "pdf_uploaded", None)
-
-    return {
-        "doc_id": doc_id,
-        "original_text": original_text,
-        "corrected": corrected_text,
-        "feedback": feedback,
-        "errores_posibles": errores_posibles,
-        "mensaje_errores": (
-            "No se detectaron errores de 'tú' impersonal."
-            if not errores_posibles
-            else f"Se detectaron {len(errores_posibles)} posibles usos del 'tú' impersonal."
-        ),
-        "metricas": {
-            "total_frases": total_frases,
-            "frases_con_tu_impersonal": total_errores,
-            "cambios_propuestos_modelo": cambios_modelo_total,
-            "cambios_realizados_usuario": cambios_modelo_total,
-        },
-    }
+# ============================================================
+# PROCESAR TEXTO MANUAL
+# ============================================================
 
 @app.post("/process_text/")
 async def process_text(
@@ -170,7 +89,7 @@ async def process_text(
     username = sanitize_username(username)
     uid = get_user_id(username)
     if uid is None:
-        raise HTTPException(status_code=403, detail="Usuario no válido. Inicia sesión con una cuenta existente.")
+        raise HTTPException(status_code=403, detail="Usuario no válido.")
 
     original_text = text or ""
 
@@ -180,34 +99,23 @@ async def process_text(
 
     corrected_text = model.correct_full_text(original_text)
     feedback = model.generate_feedback(original_text, corrected_text)
-    feedback_lower = feedback.lower()
-    conteo_b_v = feedback_lower.count("b vs v") + feedback_lower.count(" b ") + feedback_lower.count(" v ")
-    conteo_g_j = feedback_lower.count("g vs j") + feedback_lower.count(" g ") + feedback_lower.count(" j ")
-    conteo_y_ll = feedback_lower.count("y vs ll") + feedback_lower.count(" y ") + feedback_lower.count(" ll ")
-    conteo_h = feedback_lower.count("uso de h") + feedback_lower.count("letra h") + feedback_lower.count("omisión de h")
-    conteo_tildes = feedback_lower.count("tilde") + feedback_lower.count("acentuación") + feedback_lower.count("acento")
 
-    sentences = split_into_sentences(original_text)
-    total_frases = len(sentences)
-    total_errores = len(errores_posibles)
-    cambios_modelo_total = word_levenshtein_count(original_text, corrected_text)
+    # 🔥 NUEVO: métricas reales comparando textos
+    metrics = compute_metrics(original_text, corrected_text)
 
-    text_hash = hashlib.sha256((original_text or "").encode("utf-8")).hexdigest()
+    text_hash = hashlib.sha256(original_text.encode("utf-8")).hexdigest()
     doc_id = create_document(uid, filename or "entrada_texto.txt", text_hash)
 
-    insert_metric(doc_id, "total_frases", float(total_frases))
-    insert_metric(doc_id, "frases_con_tu_impersonal", float(total_errores))
-    insert_metric(doc_id, "cambios_propuestos_modelo", float(cambios_modelo_total))
-    insert_metric(doc_id, "cambios_realizados_usuario", float(cambios_modelo_total))
-    insert_metric(doc_id, "total_frases", float(total_frases))
-    insert_metric(doc_id, "frases_con_tu_impersonal", float(total_errores))
-    insert_metric(doc_id, "errores_b_v", float(conteo_b_v))
-    insert_metric(doc_id, "errores_g_j", float(conteo_g_j))
-    insert_metric(doc_id, "errores_y_ll", float(conteo_y_ll))
-    insert_metric(doc_id, "errores_h", float(conteo_h))
-    insert_metric(doc_id, "errores_tildes", float(conteo_tildes))
-    insert_metric(doc_id, "cambios_propuestos_modelo", float(cambios_modelo_total))
-    insert_metric(doc_id, "cambios_realizados_usuario", float(cambios_modelo_total))
+    # Guardamos métricas en BD
+    insert_metric(doc_id, "total_frases", float(metrics["total_sentences"]))
+    insert_metric(doc_id, "frases_con_tu_impersonal", float(len(errores_posibles)))
+    insert_metric(doc_id, "errores_b_v", float(metrics["errors_bv"]))
+    insert_metric(doc_id, "errores_g_j", float(metrics["errors_gj"]))
+    insert_metric(doc_id, "errores_y_ll", float(metrics["errors_yll"]))
+    insert_metric(doc_id, "errores_h", float(metrics["errors_h"]))
+    insert_metric(doc_id, "errores_tildes", float(metrics["errors_tildes"]))
+    insert_metric(doc_id, "cambios_propuestos_modelo", float(metrics["changes_proposed_model"]))
+    insert_metric(doc_id, "cambios_realizados_usuario", float(metrics["changes_done_user"]))
 
     record_usage(uid, "text_uploaded", None)
 
@@ -223,55 +131,81 @@ async def process_text(
             else f"Se detectaron {len(errores_posibles)} posibles usos del 'tú' impersonal."
         ),
         "metricas": {
-            "total_frases": total_frases,
-            "frases_con_tu_impersonal": total_errores,
-            "cambios_propuestos_modelo": cambios_modelo_total,
-            "cambios_realizados_usuario": cambios_modelo_total,
+            "total_frases": metrics["total_sentences"],
+            "frases_con_tu_impersonal": len(errores_posibles),
+            "errores_b_v": metrics["errors_bv"],
+            "errores_g_j": metrics["errors_gj"],
+            "errores_y_ll": metrics["errors_yll"],
+            "errores_h": metrics["errors_h"],
+            "errores_tildes": metrics["errors_tildes"],
+            "cambios_propuestos_modelo": metrics["changes_proposed_model"],
+            "cambios_realizados_usuario": metrics["changes_done_user"],
         },
     }
 
-@app.post("/documents/{doc_id}/metrics")
-def add_document_metric(
-    doc_id: int,
-    name: str = Form(...),
-    value: float = Form(...),
+
+# ============================================================
+# PROCESAR PDF
+# ============================================================
+
+@app.post("/process/")
+async def process_pdf(
+    file: UploadFile = File(...),
+    username: str = Form(...),
 ):
-    try:
-        insert_metric(doc_id, name, float(value))
-        return {"ok": True, "document_id": doc_id, "metric_name": name, "metric_value": float(value)}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    username = sanitize_username(username)
+    uid = get_user_id(username)
+    if uid is None:
+        raise HTTPException(status_code=403, detail="Usuario no válido.")
 
-@app.post("/documents/{doc_id}/user_changes")
-def update_user_changes(
-    doc_id: int,
-    changes: int = Form(...),
-):
-    try:
-        insert_metric(doc_id, "cambios_realizados_usuario", float(changes))
-        return {"ok": True, "document_id": doc_id, "metric_name": "cambios_realizados_usuario", "metric_value": float(changes)}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    content = await file.read()
+    original_text = extract_text_from_pdf(content)
 
-@app.get("/users/{username}/overview")
-def user_overview(username: str):
-    return get_user_overview(username)
+    errores_posibles, _ = posible_tu_impersonal(original_text)
+    if not isinstance(errores_posibles, list):
+        errores_posibles = []
 
-@app.get("/users/{username}/documents")
-def user_documents(username: str):
-    return {"documents": get_user_documents(username)}
+    corrected_text = model.correct_full_text(original_text)
+    feedback = model.generate_feedback(original_text, corrected_text)
 
-@app.get("/documents/{doc_id}/metrics")
-def document_metrics(doc_id: int):
-    return {"doc_id": doc_id, "metrics": get_document_metrics(doc_id)}
+    # 🔥 NUEVO
+    metrics = compute_metrics(original_text, corrected_text)
 
-@app.get("/users/{username}/weekly_activity")
-def user_weekly_activity(username: str):
-    return {"username": username, "activity": get_user_weekly_activity(username)}
+    text_hash = hashlib.sha256(original_text.encode("utf-8")).hexdigest()
+    doc_id = create_document(uid, file.filename, text_hash)
 
-@app.delete("/documents/{doc_id}")
-def delete_doc(doc_id: int):
-    ok = delete_document(doc_id)
-    if not ok:
-        raise HTTPException(status_code=404, detail="Documento no encontrado.")
-    return {"ok": True, "deleted_id": doc_id}
+    insert_metric(doc_id, "total_frases", float(metrics["total_sentences"]))
+    insert_metric(doc_id, "frases_con_tu_impersonal", float(len(errores_posibles)))
+    insert_metric(doc_id, "errores_b_v", float(metrics["errors_bv"]))
+    insert_metric(doc_id, "errores_g_j", float(metrics["errors_gj"]))
+    insert_metric(doc_id, "errores_y_ll", float(metrics["errors_yll"]))
+    insert_metric(doc_id, "errores_h", float(metrics["errors_h"]))
+    insert_metric(doc_id, "errores_tildes", float(metrics["errors_tildes"]))
+    insert_metric(doc_id, "cambios_propuestos_modelo", float(metrics["changes_proposed_model"]))
+    insert_metric(doc_id, "cambios_realizados_usuario", float(metrics["changes_done_user"]))
+
+    record_usage(uid, "pdf_uploaded", None)
+
+    return {
+        "doc_id": doc_id,
+        "original_text": original_text,
+        "corrected": corrected_text,
+        "feedback": feedback,
+        "errores_posibles": errores_posibles,
+        "mensaje_errores": (
+            "No se detectaron errores de 'tú' impersonal."
+            if not errores_posibles
+            else f"Se detectaron {len(errores_posibles)} posibles usos del 'tú' impersonal."
+        ),
+        "metricas": {
+            "total_frases": metrics["total_sentences"],
+            "frases_con_tu_impersonal": len(errores_posibles),
+            "errores_b_v": metrics["errors_bv"],
+            "errores_g_j": metrics["errors_gj"],
+            "errores_y_ll": metrics["errors_yll"],
+            "errores_h": metrics["errors_h"],
+            "errores_tildes": metrics["errors_tildes"],
+            "cambios_propuestos_modelo": metrics["changes_proposed_model"],
+            "cambios_realizados_usuario": metrics["changes_done_user"],
+        },
+    }
