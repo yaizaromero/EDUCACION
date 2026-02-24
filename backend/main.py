@@ -84,6 +84,7 @@ def user_logout(username: str = Form(...)):
 async def process_text(
     username: str = Form(...),
     text: str = Form(...),
+    mode: str = Form("ortografia"),  # "ortografia" o "tu_impersonal"
     filename: str = Form(None),
 ):
     username = sanitize_username(username)
@@ -93,20 +94,23 @@ async def process_text(
 
     original_text = text or ""
 
+    # 1. Llamada al modelo pasando el modo elegido ("ortografia" o "tu_impersonal")
+    corrected_text = model.correct_full_text(original_text, mode=mode)
+    
+    # 2. Generar feedback basado en los cambios realizados
+    feedback = model.generate_feedback(original_text, corrected_text)
+
+    # 3. Métricas y detección de candidatos a tú impersonal
+    metrics = compute_metrics(original_text, corrected_text)
     errores_posibles, _ = posible_tu_impersonal(original_text)
     if not isinstance(errores_posibles, list):
         errores_posibles = []
 
-    corrected_text = model.correct_full_text(original_text)
-    feedback = model.generate_feedback(original_text, corrected_text)
-
-    # 🔥 NUEVO: métricas reales comparando textos
-    metrics = compute_metrics(original_text, corrected_text)
-
+    # Generar hash y guardar documento
     text_hash = hashlib.sha256(original_text.encode("utf-8")).hexdigest()
     doc_id = create_document(uid, filename or "entrada_texto.txt", text_hash)
 
-    # Guardamos métricas en BD
+    # Guardar métricas en BD
     insert_metric(doc_id, "total_frases", float(metrics["total_sentences"]))
     insert_metric(doc_id, "frases_con_tu_impersonal", float(len(errores_posibles)))
     insert_metric(doc_id, "errores_b_v", float(metrics["errors_bv"]))
@@ -121,6 +125,7 @@ async def process_text(
 
     return {
         "doc_id": doc_id,
+        "mode_used": mode,
         "original_text": original_text,
         "corrected": corrected_text,
         "feedback": feedback,
@@ -152,6 +157,7 @@ async def process_text(
 async def process_pdf(
     file: UploadFile = File(...),
     username: str = Form(...),
+    mode: str = Form("ortografia"),  # Añadido selector de modo para PDF
 ):
     username = sanitize_username(username)
     uid = get_user_id(username)
@@ -161,16 +167,19 @@ async def process_pdf(
     content = await file.read()
     original_text = extract_text_from_pdf(content)
 
+    # 1. Llamada al modelo pasando el modo elegido
+    corrected_text = model.correct_full_text(original_text, mode=mode)
+    
+    # 2. Feedback
+    feedback = model.generate_feedback(original_text, corrected_text)
+
+    # 3. Métricas
+    metrics = compute_metrics(original_text, corrected_text)
     errores_posibles, _ = posible_tu_impersonal(original_text)
     if not isinstance(errores_posibles, list):
         errores_posibles = []
 
-    corrected_text = model.correct_full_text(original_text)
-    feedback = model.generate_feedback(original_text, corrected_text)
-
-    # 🔥 NUEVO
-    metrics = compute_metrics(original_text, corrected_text)
-
+    # Registro en base de datos
     text_hash = hashlib.sha256(original_text.encode("utf-8")).hexdigest()
     doc_id = create_document(uid, file.filename, text_hash)
 
@@ -188,6 +197,7 @@ async def process_pdf(
 
     return {
         "doc_id": doc_id,
+        "mode_used": mode,
         "original_text": original_text,
         "corrected": corrected_text,
         "feedback": feedback,
@@ -209,3 +219,46 @@ async def process_pdf(
             "cambios_realizados_usuario": metrics["changes_done_user"],
         },
     }
+
+# ============================================================
+# GESTIÓN DE DOCUMENTOS Y MÉTRICAS RESTANTES
+# ============================================================
+
+@app.post("/documents/{doc_id}/metrics")
+def add_document_metric(doc_id: int, name: str = Form(...), value: float = Form(...)):
+    try:
+        insert_metric(doc_id, name, float(value))
+        return {"ok": True, "document_id": doc_id, "metric_name": name, "metric_value": float(value)}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/documents/{doc_id}/user_changes")
+def update_user_changes(doc_id: int, changes: int = Form(...)):
+    try:
+        insert_metric(doc_id, "cambios_realizados_usuario", float(changes))
+        return {"ok": True, "document_id": doc_id, "metric_name": "cambios_realizados_usuario", "metric_value": float(changes)}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/users/{username}/overview")
+def user_overview(username: str):
+    return get_user_overview(username)
+
+@app.get("/users/{username}/documents")
+def user_documents(username: str):
+    return {"documents": get_user_documents(username)}
+
+@app.get("/documents/{doc_id}/metrics")
+def document_metrics(doc_id: int):
+    return {"doc_id": doc_id, "metrics": get_document_metrics(doc_id)}
+
+@app.get("/users/{username}/weekly_activity")
+def user_weekly_activity(username: str):
+    return {"username": username, "activity": get_user_weekly_activity(username)}
+
+@app.delete("/documents/{doc_id}")
+def delete_doc(doc_id: int):
+    ok = delete_document(doc_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Documento no encontrado.")
+    return {"ok": True, "deleted_id": doc_id}

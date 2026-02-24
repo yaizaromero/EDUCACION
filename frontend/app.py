@@ -11,7 +11,9 @@ import altair as alt
 
 st.set_page_config(page_title="PALABRIA", layout="centered")
 
-
+# =========================
+# UI: labels/keys
+# =========================
 PRETTY = {
     "total_frases": "Total de frases",
     "frases_con_tu_impersonal": "Posibles frases con 'tú' impersonal",
@@ -25,20 +27,27 @@ PRETTY = {
 }
 SHOW_KEYS = list(PRETTY.keys())
 
+# Backend modes
+MODE_OPTIONS = {
+    "📝 Ortografía (B/V, G/J, Y/LL, H, tildes)": "ortografia",
+    "👤 Tú impersonal → impersonal con “se”": "tu_impersonal",
+}
 
+# =========================
+# CSS (tuyo)
+# =========================
 st.markdown("""
 <style>
 form[data-testid="stForm"] {
-    margin-top: 5rem !important;  /* baja el bloque unos 5 cm */
+    margin-top: 5rem !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown("""
 <style>
-/* Reduce el espacio después de los gráficos Altair */
 div[data-testid="stVegaLiteChart"] {
-    margin-bottom: -0.5rem !important;   /* antes era ~2rem por defecto */
+    margin-bottom: -0.5rem !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -92,7 +101,7 @@ st.markdown(
     /* --- Título de cada métrica --- */
     div[data-testid="stMetricLabel"] {
       font-size: 1rem !important;
-      font-weight: 500 !important;    
+      font-weight: 500 !important;
       color: #111827 !important;
       margin-bottom: 0.15rem !important;
       line-height: 1.15 !important;
@@ -131,33 +140,6 @@ st.markdown(
       cursor: default;
     }
 
-    /* --- Títulos --- */
-    section[data-testid="stVerticalBlock"] h1,
-    section[data-testid="stVerticalBlock"] h2,
-    section[data-testid="stVerticalBlock"] h3 {
-        margin-bottom: 0.25rem !important;
-    }
-
-    div.stMarkdown h1, div.stMarkdown h2, div.stMarkdown h3 {
-        margin-top: 0.2rem !important;
-        margin-bottom: 0.15rem !important;
-        line-height: 1.15 !important;
-    }
-
-    div[data-testid="stVerticalBlock"] > div + div {
-        margin-top: -0.35rem !important;
-    }
-
-    section[data-testid="stVerticalBlock"] {
-        margin-bottom: 0.3rem !important;
-        padding-bottom: 0 !important;
-    }
-
-    section[data-testid="stVerticalBlock"] > div {
-        margin-bottom: 0.15rem !important;
-        padding-bottom: 0rem !important;
-    }
-
     /* --- Formularios --- */
     div[data-testid="stRadio"],
     div[data-testid="stTextInput"],
@@ -166,7 +148,7 @@ st.markdown(
         margin-bottom: -0.15rem !important;
     }
 
-    /* --- Áreas de texto editables ("Pega aquí tu texto" y "Tu versión final") --- */
+    /* --- Áreas de texto editables --- */
     div[data-testid="stTextArea"] {
         overflow: visible !important;
         margin-right: 0 !important;
@@ -174,19 +156,17 @@ st.markdown(
         width: 100% !important;
         box-sizing: border-box !important;
     }
-
     div[data-testid="stTextArea"] > div {
         overflow: visible !important;
         width: 100% !important;
     }
-
     div[data-testid="stTextArea"] textarea {
         overflow-x: hidden !important;
         overflow-y: auto !important;
         width: 100% !important;
         max-width: 100% !important;
         box-sizing: border-box !important;
-        resize: vertical !important;     /* solo vertical */
+        resize: vertical !important;
         font-size: 1rem !important;
         line-height: 1.5 !important;
         border: 1px solid rgba(49,51,63,0.2) !important;
@@ -199,12 +179,15 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# =========================
+# Helpers
+# =========================
 def save_text_as_pdf(text, filename="Texto_Corregido.pdf"):
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
     pdf.set_font("Arial", size=12)
-    for line in text.split("\n"):
+    for line in (text or "").split("\n"):
         pdf.multi_cell(0, 10, line)
     pdf.output(filename)
     return filename
@@ -224,36 +207,15 @@ def fetch_status(backend_url, timeout=5):
     return {"modelo_listo": False, "progress": 0, "message": "Desconocido"}
 
 def _normalize_for_diff(text: str) -> str:
-    """
-    Normalización mínima:
-    - …  → ...
-    - — / –  → -
-    - “ ”  → "
-    - ‘ ’  → '
-    Mantiene saltos de línea.
-    """
-
     if not text:
         return ""
-
     t = text
     t = t.replace("…", "...")
-    t = (
-        t.replace("“", '"')
-         .replace("”", '"')
-    )
-    t = (
-        t.replace("‘", "'")
-         .replace("’", "'")
-    )
-    t = (
-        t.replace("—", "-")
-         .replace("–", "-")   
-    )
+    t = t.replace("“", '"').replace("”", '"')
+    t = t.replace("‘", "'").replace("’", "'")
+    t = t.replace("—", "-").replace("–", "-")
     t = t.replace("\r\n", "\n").replace("\r", "\n")
-
     return t.strip()
-
 
 def word_levenshtein_count(a_text: str, b_text: str) -> int:
     a_tokens = _normalize_for_diff(a_text).split()
@@ -268,7 +230,6 @@ def pretty_int(x):
         return x
 
 def pretty_hms(seconds: float) -> str:
-    """⏱️ Formatea segundos a 'H h M min S s'."""
     try:
         s = int(round(float(seconds)))
     except Exception:
@@ -303,7 +264,6 @@ def inject_session_js(backend_url: str, username: str):
       }}
 
       const sendHeartbeat = () => postForm(hbUrl, {{username}});
-      // Heartbeat inicial y luego cada 20s
       sendHeartbeat();
       const hbTimer = setInterval(sendHeartbeat, 20000);
 
@@ -333,9 +293,7 @@ def has_current_analysis() -> bool:
     anal = st.session_state.get("last_analysis")
     if not anal:
         return False
-    if anal.get("original_sentences") or anal.get("corrected_text"):
-        return True
-    return False
+    return bool(anal.get("original_text") or anal.get("corrected_text"))
 
 def clear_current_analysis():
     for k in ["last_input_digest","last_pdf_name","last_doc_id",
@@ -353,9 +311,6 @@ def _clear_metrics_cache():
     for k in list(st.session_state.keys()):
         if str(k).startswith("__cache_doc_"):
             st.session_state.pop(k, None)
-
-def _clear_input_cache():
-    clear_current_analysis()
 
 def _fetch_and_cache_doc_metrics(backend_url, doc_id: int):
     try:
@@ -376,6 +331,9 @@ def _post_user_changes(backend_url, doc_id: int, changes: int):
     except Exception:
         pass
 
+# =========================
+# Auth forms (tuyas)
+# =========================
 def login():
     with st.form("login_form"):
         st.markdown("<h2 class='h-section'>🔓 Iniciar sesión</h2>", unsafe_allow_html=True)
@@ -394,7 +352,7 @@ def login():
                         st.success(f"Bienvenido/a, {username}")
                         _clear_status_cache()
                         _clear_metrics_cache()
-                        _clear_input_cache()
+                        clear_current_analysis()
                         st.rerun()
                     else:
                         try:
@@ -425,7 +383,7 @@ def create_account():
                         st.success(f"Cuenta creada para {new_username}")
                         _clear_status_cache()
                         _clear_metrics_cache()
-                        _clear_input_cache()
+                        clear_current_analysis()
                         st.rerun()
                     else:
                         try:
@@ -438,7 +396,9 @@ def create_account():
             else:
                 st.warning("Por favor, escribe un nombre de usuario.")
 
-
+# =========================
+# Metrics screens (tuyas)
+# =========================
 def cargar_metricas(username, backend_url):
     ov = requests.get(f"{backend_url}/users/{username}/overview", timeout=20).json()
     docs = requests.get(f"{backend_url}/users/{username}/documents", timeout=20).json().get("documents", [])
@@ -528,26 +488,11 @@ def ver_mis_metricas(username, backend_url):
         if avg_metrics:
             st.markdown("""
             <style>
-            .metric-row {
-                padding: 0.4rem 0.8rem;
-                border-radius: 0.4rem;
-                margin-bottom: 0.25rem;
-            }
-            .metric-row:nth-child(odd) {
-                background-color: #f9fafb;
-            }
-            .metric-row:nth-child(even) {
-                background-color: #ffffff;
-            }
-            .metric-label {
-                font-weight: 400;
-                color: #374151;
-            }
-            .metric-value {
-                float: right;
-                font-weight: 500;
-                color: #000000;
-            }
+            .metric-row { padding: 0.4rem 0.8rem; border-radius: 0.4rem; margin-bottom: 0.25rem; }
+            .metric-row:nth-child(odd) { background-color: #f9fafb; }
+            .metric-row:nth-child(even) { background-color: #ffffff; }
+            .metric-label { font-weight: 400; color: #374151; }
+            .metric-value { float: right; font-weight: 500; color: #000000; }
             </style>
             """, unsafe_allow_html=True)
 
@@ -557,11 +502,10 @@ def ver_mis_metricas(username, backend_url):
                     label = PRETTY.get(key, key)
                     value = pretty_int(round(avg_metrics[key], 2))
                     html_rows += f"<div class='metric-row'><span class='metric-label'>{label}</span><span class='metric-value'>{value}</span></div>"
-
             st.markdown(html_rows, unsafe_allow_html=True)
         else:
             st.info("Sin métricas históricas todavía.")
-        
+
         st.markdown("<h2 class='h-section'>📅 Actividad semanal</h2>", unsafe_allow_html=True)
         st.markdown("<div style='margin-bottom: 1.5rem;'></div>", unsafe_allow_html=True)
         try:
@@ -574,10 +518,7 @@ def ver_mis_metricas(username, backend_url):
                     df["minutos"] = df["total_seconds"] / 60.0
                     df["day"] = pd.to_datetime(df["day"])
                     df = df.sort_values("day")
-                    mapping = {
-                        "Monday": "Lun", "Tuesday": "Mar", "Wednesday": "Mié",
-                        "Thursday": "Jue", "Friday": "Vie", "Saturday": "Sáb", "Sunday": "Dom"
-                    }
+                    mapping = {"Monday":"Lun","Tuesday":"Mar","Wednesday":"Mié","Thursday":"Jue","Friday":"Vie","Saturday":"Sáb","Sunday":"Dom"}
                     df["dia_semana"] = df["day"].dt.day_name().map(mapping)
                     order = ["No inició sesión", "Hasta 5 min", "Hasta 15 min", "Hasta 30 min", "Más de 30 min"]
 
@@ -587,14 +528,9 @@ def ver_mis_metricas(username, backend_url):
                         .encode(
                             x=alt.X("dia_semana:N", title="Día de la semana", sort=["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"]),
                             y=alt.Y("minutos:Q", title="Minutos totales"),
-                            color=alt.Color(
-                                "categoria:N",
-                                title="Nivel de actividad",
-                                scale=alt.Scale(
-                                    domain=order,
-                                    range=["#ef4444", "#f97316", "#facc15", "#22c55e", "#3b82f6"]
-                                )
-                            ),
+                            color=alt.Color("categoria:N", title="Nivel de actividad",
+                                            scale=alt.Scale(domain=order,
+                                                            range=["#ef4444","#f97316","#facc15","#22c55e","#3b82f6"])),
                             tooltip=[
                                 alt.Tooltip("day:T", title="Fecha"),
                                 alt.Tooltip("minutos:Q", title="Minutos totales", format=".1f"),
@@ -658,6 +594,9 @@ def ver_mis_metricas(username, backend_url):
     else:
         st.info("No hay documentos aún.")
 
+# =========================
+# Status (tuyo)
+# =========================
 def render_status(backend_url):
     if "modelo_listo" not in st.session_state:
         st.session_state["modelo_listo"] = False
@@ -669,7 +608,7 @@ def render_status(backend_url):
     st.progress(st.session_state["status_progress"])
 
     if st.session_state["modelo_listo"]:
-        st.success("✅ Modelo cargado y listo para subir PDFs")
+        st.success("✅ Modelo cargado y listo")
         return
 
     estado = fetch_status(backend_url, timeout=5)
@@ -686,7 +625,9 @@ def render_status(backend_url):
 
     st.stop()
 
-
+# =========================
+# Main app
+# =========================
 def main_app():
     st.sidebar.title("Opciones")
     backend_url = os.getenv("BACKEND_URL", "http://localhost:8000")
@@ -704,7 +645,7 @@ def main_app():
             st.session_state.pop("usuario", None)
             _clear_status_cache()
             _clear_metrics_cache()
-            _clear_input_cache()
+            clear_current_analysis()
             st.rerun()
 
         if st.sidebar.button("🧹 Limpiar análisis actual"):
@@ -736,6 +677,7 @@ def main_app():
         st.warning("Por favor, selecciona una opción en la barra lateral.")
         return
 
+    # Dispara carga del modelo una vez
     if "load_disparado" not in st.session_state:
         st.session_state["load_disparado"] = False
     if not st.session_state["load_disparado"]:
@@ -752,8 +694,26 @@ def main_app():
         return
 
     st.markdown("<div class='spacer-1cm'></div>", unsafe_allow_html=True)
-
     st.markdown("<h2 class='h-section'>📤 ANALIZA TU PDF O PEGA TU TEXTO</h2>", unsafe_allow_html=True)
+
+    # =========================
+    # NEW: selector de modo
+    # =========================
+    st.markdown("<h2 class='h-section'>Modo de corrección</h2>", unsafe_allow_html=True)
+    
+    def on_mode_change():
+        st.session_state["last_input_digest"] = None
+
+    mode_label = st.radio(
+        " ", 
+        list(MODE_OPTIONS.keys()), 
+        on_change=on_mode_change, 
+        horizontal=False, 
+        label_visibility="collapsed"
+    )
+
+    selected_mode = MODE_OPTIONS[mode_label]
+    st.caption(f"Modo seleccionado: **{selected_mode}**")
 
     st.markdown("<h2 class='h-section'>Fuente de entrada</h2>", unsafe_allow_html=True)
     modo_entrada = st.radio(" ", ["Subir PDF", "Escribir texto"], horizontal=True, label_visibility="collapsed")
@@ -770,34 +730,43 @@ def main_app():
     if "last_analysis" not in st.session_state:
         st.session_state["last_analysis"] = None
 
+    # =========================
+    # PDF flow
+    # =========================
     if modo_entrada == "Subir PDF":
         st.markdown("<h2 class='h-section'>Sube tu PDF</h2>", unsafe_allow_html=True)
         uploaded_file = st.file_uploader("", type=["pdf"], label_visibility="collapsed")
 
         if uploaded_file is not None:
             file_bytes = uploaded_file.getvalue()
-            digest = hashlib.sha256(file_bytes).hexdigest()
+            digest = hashlib.sha256(file_bytes + selected_mode.encode("utf-8")).hexdigest()
 
         should_process = (uploaded_file is not None) and (digest != st.session_state.get("last_input_digest"))
 
         if should_process:
             with st.spinner("Analizando el PDF..."):
                 files = {'file': (uploaded_file.name, file_bytes, "application/pdf")}
-                data = {'username': st.session_state["usuario"]}
-                response = requests.post(f"{backend_url}/process/", files=files, data=data, timeout=120)
+                data = {'username': st.session_state["usuario"], 'mode': selected_mode}
+                response = requests.post(f"{backend_url}/process/", files=files, data=data, timeout=180)
 
             if response.status_code == 200:
                 data = response.json()
                 st.session_state["last_input_digest"] = digest
                 st.session_state["last_pdf_name"] = uploaded_file.name
                 st.session_state["last_doc_id"] = data.get("doc_id")
+
+                corrected = data.get("corrected", "")
+                if not isinstance(corrected, str):
+                    corrected = str(corrected)
+
                 st.session_state["last_analysis"] = {
-                    "original_text": data.get("original_text", ""), 
+                    "original_text": data.get("original_text", ""),
                     "metricas": data.get("metricas", {}),
-                    "corrected_text": data.get("corrected", ""),
-                    "feedback": data.get("feedback", "")
+                    "corrected_text": corrected,
+                    "feedback": data.get("feedback", ""),
+                    "mode_used": data.get("mode_used", selected_mode),
                 }
-                st.session_state["edited_text_area"] = st.session_state["last_analysis"]["corrected_text"]
+                st.session_state["edited_text_area"] = corrected
                 st.session_state["__edited_for_doc"] = st.session_state["last_doc_id"]
             else:
                 st.error(f"❌ Error al procesar el PDF (código {response.status_code})")
@@ -807,6 +776,9 @@ def main_app():
                     st.write(response.text)
                 st.stop()
 
+    # =========================
+    # Text flow
+    # =========================
     else:
         st.markdown("<h2 class='h-section'>Escribir texto</h2>", unsafe_allow_html=True)
         texto_plano = st.text_area("Pega aquí tu texto", height=200, key="__input_texto_plano")
@@ -818,33 +790,42 @@ def main_app():
         if "." not in nombre_doc_norm:
             nombre_doc_norm += ".txt"
 
-        col_a, col_b = st.columns([1,3])
+        col_a, col_b = st.columns([1, 3])
         if col_a.button("Analizar texto"):
             if not texto_plano or not texto_plano.strip():
                 st.warning("Escribe algún texto antes de analizar.")
             else:
-                digest = hashlib.sha256((texto_plano or "").encode("utf-8")).hexdigest()
+                st.session_state.pop("edited_text_area", None)
+                st.session_state["last_analysis"] = None
+                digest = hashlib.sha256(((texto_plano or "") + "|" + selected_mode).encode("utf-8")).hexdigest()
                 if digest != st.session_state.get("last_input_digest"):
                     with st.spinner("Analizando el texto..."):
                         data = {
                             'username': st.session_state["usuario"],
                             'text': texto_plano,
                             'filename': nombre_doc_norm,
+                            'mode': selected_mode,
                         }
-                        response = requests.post(f"{backend_url}/process_text/", data=data, timeout=120)
+                        response = requests.post(f"{backend_url}/process_text/", data=data, timeout=180)
 
                     if response.status_code == 200:
                         resp = response.json()
                         st.session_state["last_input_digest"] = digest
                         st.session_state["last_pdf_name"] = nombre_doc_norm
                         st.session_state["last_doc_id"] = resp.get("doc_id")
+
+                        corrected = resp.get("corrected", "")
+                        if not isinstance(corrected, str):
+                            corrected = str(corrected)
+
                         st.session_state["last_analysis"] = {
                             "original_text": resp.get("original_text", ""),
                             "metricas": resp.get("metricas", {}),
-                            "corrected_text": resp.get("corrected", []),
-                            "feedback": resp.get("feedback", "")
+                            "corrected_text": corrected,
+                            "feedback": resp.get("feedback", ""),
+                            "mode_used": resp.get("mode_used", selected_mode),
                         }
-                        st.session_state["edited_text_area"] = st.session_state["last_analysis"]["corrected_text"]
+                        st.session_state["edited_text_area"] = corrected
                         st.session_state["__edited_for_doc"] = st.session_state["last_doc_id"]
                     else:
                         st.error(f"❌ Error al procesar el texto (código {response.status_code})")
@@ -856,15 +837,18 @@ def main_app():
 
     st.markdown("<div class='spacer-tabs'></div>", unsafe_allow_html=True)
 
-  
     tabs = st.tabs(["📄 Análisis actual", "📊 Métricas globales"])
 
     with tabs[0]:
         if has_current_analysis():
             anal = st.session_state["last_analysis"]
             metricas = anal.get("metricas", {})
-            original_joined = anal.get("original_text") or "\n".join(anal.get("original_sentences", []))
-            corrected_text = anal.get("corrected_text", "")
+            original_joined = anal.get("original_text", "")
+            corrected_text = anal.get("corrected_text", "") or ""
+            mode_used = anal.get("mode_used", "")
+
+            st.markdown("<h2 class='h-section'>⚙️ Modo usado</h2>", unsafe_allow_html=True)
+            st.info(mode_used or "(sin modo)")
 
             if st.session_state.get("__edited_for_doc") != st.session_state.get("last_doc_id"):
                 st.session_state["edited_text_area"] = corrected_text
@@ -878,32 +862,26 @@ def main_app():
 
             if metricas:
                 st.markdown("<h2 class='h-section'>📊 Métricas del texto actual</h2>", unsafe_allow_html=True)
-                
-                # Primera fila
+
                 col1, col2 = st.columns(2, gap="medium")
                 col1.metric("Total de frases", metricas.get("total_frases", 0))
                 col2.metric("Posibles frases con 'tú' impersonal", metricas.get("frases_con_tu_impersonal", 0))
-                
-                # Segunda fila: Ortografía
+
                 col_o1, col_o2, col_o3 = st.columns(3, gap="medium")
                 col_o1.metric("Errores B/V", metricas.get("errores_b_v", 0))
                 col_o2.metric("Errores G/J", metricas.get("errores_g_j", 0))
                 col_o3.metric("Errores Y/LL", metricas.get("errores_y_ll", 0))
-                
-                # Tercera fila: Ortografía (cont.)
+
                 col_o4, col_o5, _ = st.columns(3, gap="medium")
                 col_o4.metric("Errores de H", metricas.get("errores_h", 0))
                 col_o5.metric("Errores de Tildes", metricas.get("errores_tildes", 0))
 
-                # Cuarta fila: Cambios
                 col3, col4 = st.columns(2, gap="medium")
                 col3.metric("Cambios propuestos (modelo)", metricas.get("cambios_propuestos_modelo", 0))
                 col4.metric("Cambios realizados (usuario)", cambios_usuario_total)
 
-            st.markdown("<h2 class='h-section'>📥 Texto original (del PDF o entrada de texto)</h2>", unsafe_allow_html=True)
-
-            original_text_display = anal.get("original_text", "")
-
+            st.markdown("<h2 class='h-section'>📥 Texto original</h2>", unsafe_allow_html=True)
+            original_text_display = anal.get("original_text", "") or ""
             st.markdown(
                 f"""
                 <textarea class="readonly-box" readonly style="white-space: pre-wrap; line-height: 1.5;">{original_text_display.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")}</textarea>
@@ -913,16 +891,18 @@ def main_app():
 
             st.markdown("<h2 class='h-section'>💻 Salida del modelo</h2>", unsafe_allow_html=True)
             st.markdown(
-               f"""
+                f"""
                 <textarea class="readonly-box" readonly>{(corrected_text or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")}</textarea>
                 """,
                 unsafe_allow_html=True
             )
 
-            st.markdown("<h2 class='h-section'>📚 Feedback del modelo</h2>", unsafe_allow_html=True)
-            
-            feedback_text = anal.get("feedback", "")
-            st.markdown(f"""<textarea class="readonly-box" readonly style="white-space: pre-wrap; line-height: 1.5;">{feedback_text.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")}</textarea>""", unsafe_allow_html=True)
+            st.markdown("<h2 class='h-section'>📚 Feedback</h2>", unsafe_allow_html=True)
+            feedback_text = anal.get("feedback", "") or ""
+            st.markdown(
+                f"""<textarea class="readonly-box" readonly style="white-space: pre-wrap; line-height: 1.5;">{feedback_text.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")}</textarea>""",
+                unsafe_allow_html=True
+            )
 
             st.markdown("<h2 class='h-section'>📝 Revisa y edita el texto corregido</h2>", unsafe_allow_html=True)
 

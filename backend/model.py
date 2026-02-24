@@ -1,11 +1,8 @@
-# backend/model.py
 import time
 import threading
 from typing import List, Optional
-
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
-
 
 MODEL_LOADED: bool = False
 LOAD_PROGRESS: int = 0
@@ -13,111 +10,104 @@ LOAD_MESSAGE: str = "Modelo no cargado."
 
 _lock = threading.Lock()
 _thread = None
-
 _tokenizer: Optional[AutoTokenizer] = None
 _model: Optional[AutoModelForCausalLM] = None
 
 MODEL_ID = "mistralai/Mistral-7B-Instruct-v0.3"
 
-PROMPT_TEMPLATE = """<s>[INST] <<SYS>>
-Eres un asistente experto en corrección de textos en español.
+# --- PROMPTS SEPARADOS ---
 
-Tu tarea es :
-Detectar y corregir errores ortográficos que pertenezcan ESTRICTAMENTE a las siguientes categorías:
-   - Confusión entre B y V.
-   - Confusión entre G y J.
-   - Confusión entre Y y LL.
-   - Uso incorrecto u omisión de la letra H.
-   - Uso incorrecto u omisión de tildes (acentuación).
-
-REGLAS OBLIGATORIAS:
-- Mantén el tiempo verbal original y la concordancia.
-- No cambies palabras, puntuación ni estructura sintáctica salvo lo estrictamente necesario para aplicar las correcciones indicadas.
-- No agregues explicaciones, comentarios ni contenido adicional en esta salida. Solo devuelve el texto corregido.
-- Mantén un registro formal, académico o científico.
+PROMPT_ORTOGRAFIA = """<s>[INST] <<SYS>>
+Eres un experto en ortografía española. Tu única tarea es corregir:
+- Confusión entre B/V, G/J, Y/LL.
+- Uso de la H.
+- Tildes y acentuación.
+REGLA: No cambies el "tú" impersonal ni el estilo. No añadas comentarios.
 <</SYS>>
-
-Ejemplos:
-1. He perdido las yaves de casa.
-He perdido las llaves de casa.
-2. Bamos a la plalla.
-Vamos a la playa.
-3. oy tu tienes examen.
-Hoy tú tienes examen.
-4. El profesor tiene que correjir los examenes.
-El profesor tiene que corregir los exámenes.
-
 Texto a corregir:
-[TEXTO]
-[/INST]
-"""
+[TEXTO] [/INST]"""
 
-PROMPT_FEEDBACK = """<s>[INST] <<SYS>>
-Eres un tutor de español que ayuda a mejorar la redacción académica.
-
-Tu tarea es explicar de forma sencilla los cambios realizados entre un texto original y su versión corregida.
-
-Explica únicamente los cambios que realmente aparecen en el texto corregido. Categoriza los errores encontrados en:
-- Errores ortográficos: B vs V, G vs J, Y vs LL, uso de H, o uso de tildes.
-
-Para cada error corregido:
-1. Indica la palabra original y su corrección.
-2. Menciona a qué categoría pertenece.
-3. Da una brevísima regla ortográfica o gramatical que justifique el cambio.
-
-No inventes errores que no estén en el texto. Redacta el feedback de forma estructurada, clara, directa y pedagógica.
+PROMPT_TU_IMPERSONAL = """<s>[INST] <<SYS>>
+Eres un experto en redacción académica. Tu única tarea es:
+- Transformar verbos en 2ª persona singular (tú impersonal) a la forma impersonal con "se".
+REGLA: No corrijas ortografía ni tildes. No cambies el tiempo verbal. No añadas comentarios.
 <</SYS>>
+Texto a corregir:
+[TEXTO] [/INST]"""
 
-Texto original: [ORIGINAL]
-Texto corregido: [CORREGIDO]
-
-Explicación:
-[/INST]"""
-
+# --- GENERACIÓN ---
 
 @torch.inference_mode()
-def _generate_raw_prompt(prompt: str, max_new_tokens: int = 512) -> str:
-    """Genera texto sin envolver en PROMPT_TEMPLATE (necesario para feedback)."""
+def _generate_once(text: str, mode: str = "ortografia", max_new_tokens: int = 512) -> str:
     global _tokenizer, _model
     if not MODEL_LOADED or _tokenizer is None or _model is None:
-        return ""
-
-    inputs = _tokenizer(
-        prompt,
-        return_tensors="pt",
-        padding=True,
-        truncation=True,
-        max_length=4096,
-    )
-
+        raise RuntimeError("El modelo no está cargado.")
+    
+    # Selección dinámica del prompt
+    template = PROMPT_ORTOGRAFIA if mode == "ortografia" else PROMPT_TU_IMPERSONAL
+    prompt = template.replace("[TEXTO]", text.strip())
+    
+    inputs = _tokenizer(prompt, return_tensors="pt", padding=True, truncation=True)
     if hasattr(_model, "device"):
         inputs = {k: v.to(_model.device) for k, v in inputs.items()}
-
+    
     output_ids = _model.generate(
-        **inputs,
-        max_new_tokens=max_new_tokens,
-        do_sample=False,
+        **inputs, 
+        max_new_tokens=max_new_tokens, 
+        do_sample=False, 
         temperature=0.0,
         eos_token_id=_tokenizer.eos_token_id,
-        pad_token_id=_tokenizer.pad_token_id,
+        pad_token_id=_tokenizer.pad_token_id
     )
-
+    
     generated = output_ids[0][inputs["input_ids"].shape[-1]:]
     return _tokenizer.decode(generated, skip_special_tokens=True).strip()
 
+def correct_full_text(text: str, mode: str = "ortografia") -> str:
+    if not text: return ""
+    return _generate_once(text, mode=mode)
+
+# --- FEEDBACK ---
 
 def generate_feedback(original: str, corrected: str) -> str:
-    if not MODEL_LOADED:
+    if not original or not corrected:
         return ""
 
-    prompt = (
-        PROMPT_FEEDBACK
-        .replace("[ORIGINAL]", original.strip())
-        .replace("[CORREGIDO]", corrected.strip())
-    )
+    from backend.metrics import extract_word_changes
 
-    return _generate_raw_prompt(prompt, max_new_tokens=300)
+    if original.strip() == corrected.strip():
+        return "No se han detectado errores para corregir en este modo."
 
+    RULES = {
+        "bv": "B/V: se escriben según la raíz de la palabra.",
+        "gj": "G/J: corrección de sonido fuerte/suave ante e/i.",
+        "yll": "Y/LL: corrección ortográfica de grafías similares.",
+        "h": "H: corrección de h muda u omitida.",
+        "tildes": "Tildes: ajuste de acentuación según reglas generales.",
+        "tu_impersonal": "Transformación del 'tú' impersonal a forma con 'se'.",
+        "ortografia": "Corrección ortográfica general.",
+    }
+
+    # 🔥 SIN LÍMITE DE CAMBIOS
+    changes = extract_word_changes(original, corrected, max_items=1000)
+
+    # Si no detecta cambios pero el texto cambió → tú impersonal
+    if not changes:
+        return "Se ha transformado el estilo directo (tú) a una forma impersonal con 'se'."
+
+    lines = ["Cambios realizados:\n"]
+
+    for idx, ch in enumerate(changes, 1):
+        orig_w = ch.get("original", "")
+        corr_w = ch.get("corrected", "")
+        cat = ch.get("categories", ["ortografia"])[0]
+        rule = RULES.get(cat, "Mejora de la precisión léxica.")
+        lines.append(f"{idx}. {orig_w} → {corr_w} ({rule})")
+
+    return "\n".join(lines)
+
+
+# --- CARGA DEL MODELO (Igual que el tuyo) ---
 
 def _set(progress: int, message: str):
     global LOAD_PROGRESS, LOAD_MESSAGE
@@ -125,107 +115,35 @@ def _set(progress: int, message: str):
         LOAD_PROGRESS = max(0, min(100, int(progress)))
         LOAD_MESSAGE = message
 
-
 def _load_impl():
     global MODEL_LOADED, _tokenizer, _model
-    MODEL_LOADED = False
-
     try:
-        _set(5, "Inicializando carga…")
-        try:
-            compute_dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float16
-        except Exception:
-            compute_dtype = torch.float16
-
-        _set(20, "Preparando configuración de cuantización NF4…")
+        _set(5, "Iniciando Mistral...")
+        compute_dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float16
         nf4_config = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_quant_type="nf4",
             bnb_4bit_use_double_quant=True,
             bnb_4bit_compute_dtype=compute_dtype,
         )
-
-        _set(40, "Cargando tokenizer…")
         _tokenizer = AutoTokenizer.from_pretrained(MODEL_ID, use_fast=True)
-        if _tokenizer.pad_token is None:
-            _tokenizer.pad_token = _tokenizer.eos_token
-
-        _set(75, "Cargando modelo (esto puede tardar)…")
+        if _tokenizer.pad_token is None: _tokenizer.pad_token = _tokenizer.eos_token
+        
         _model = AutoModelForCausalLM.from_pretrained(
-            MODEL_ID,
-            trust_remote_code=True,
-            quantization_config=nf4_config,
-            device_map="auto",
+            MODEL_ID, quantization_config=nf4_config, device_map="auto"
         )
-
         _model.eval()
-
-        _set(95, "Finalizando…")
-        time.sleep(0.5)
         MODEL_LOADED = True
-        _set(100, "✅ Modelo cargado y listo")
+        _set(100, "✅ Modelo listo")
     except Exception as e:
-        _set(0, f"❌ Error cargando modelo: {e}")
-        MODEL_LOADED = False
-
+        _set(0, f"❌ Error: {e}")
 
 def ensure_model_loaded(async_load: bool = True):
-    global _thread, MODEL_LOADED
-    if MODEL_LOADED and _model is not None and _tokenizer is not None:
-        return
-    if _thread and _thread.is_alive():
-        return
+    global _thread
+    if MODEL_LOADED: return
+    if _thread and _thread.is_alive(): return
     if async_load:
         _thread = threading.Thread(target=_load_impl, daemon=True)
         _thread.start()
     else:
         _load_impl()
-
-
-def _format_prompt(document_text: str) -> str:
-    return PROMPT_TEMPLATE.replace("[TEXTO]", document_text.strip())
-
-
-@torch.inference_mode()
-def _generate_once(text: str, max_new_tokens: int = 512) -> str:
-    global _tokenizer, _model
-    if not MODEL_LOADED or _tokenizer is None or _model is None:
-        raise RuntimeError("El modelo aún no está cargado.")
-
-    prompt = _format_prompt(text)
-    inputs = _tokenizer(
-        prompt,
-        return_tensors="pt",
-        padding=True,
-        truncation=True,
-        max_length=4096,
-    )
-
-    if hasattr(_model, "device"):
-        inputs = {k: v.to(_model.device) for k, v in inputs.items()}
-
-    output_ids = _model.generate(
-        **inputs,
-        max_new_tokens=max_new_tokens,
-        do_sample=False,
-        temperature=0.0,
-        eos_token_id=_tokenizer.eos_token_id,
-        pad_token_id=_tokenizer.pad_token_id,
-    )
-
-    generated = output_ids[0][inputs["input_ids"].shape[-1]:]
-    text_out = _tokenizer.decode(generated, skip_special_tokens=True)
-    return text_out.strip()
-
-def correct_text(sentences: List[str], batch_size: int = 4, max_new_tokens: int = 512) -> List[str]:
-    document = " ".join(s.strip() for s in sentences if isinstance(s, str) and s.strip())
-    if not document:
-        return [""]
-    corrected = _generate_once(document, max_new_tokens=max_new_tokens)
-    return [corrected]
-
-def correct_full_text(text: str) -> str:
-    if not text:
-        return ""
-
-    return _generate_once(text)
