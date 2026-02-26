@@ -3,10 +3,16 @@ from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import hashlib
 import time
+import json
 
 import backend.model as model
-from backend.metrics import _normalize_for_diff, word_levenshtein_count
-from backend.utils import corregir_y_extraer_errores, extract_text_from_pdf, split_into_sentences, posible_tu_impersonal, extraer_listas_errores
+from backend.metrics import compute_metrics, word_levenshtein_count
+from backend.utils import (
+    extract_text_from_pdf, 
+    split_into_sentences, 
+    posible_tu_impersonal, 
+    extraer_listas_errores
+)
 from backend.db import (
     init_db, user_exists, create_user, get_user_id,
     record_usage, create_document, insert_metric,
@@ -26,7 +32,6 @@ app.add_middleware(
 )
 
 init_db()
-
 
 @app.get("/status/")
 def check_status():
@@ -101,182 +106,49 @@ def user_heartbeat(username: str = Form(...)):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/process/")
-async def process_pdf(
-    file: UploadFile = File(...),
-    username: str = Form(...),
-):
-    username = sanitize_username(username)
-    uid = get_user_id(username)
-    if uid is None:
-        raise HTTPException(status_code=403, detail="Usuario no válido. Inicia sesión con una cuenta existente.")
+# ============================================================
+# LÓGICA DE PROCESAMIENTO UNIFICADA
+# ============================================================
 
-    content = await file.read()
-    original_text = extract_text_from_pdf(content)
-
-    errores_posibles, _ = posible_tu_impersonal(original_text)
-    if not isinstance(errores_posibles, list):
-        errores_posibles = []
-
-    corrected_text, errores_extraidos = corregir_y_extraer_errores(original_text)
-
-    # Generamos el feedback explicativo
+def procesar_analisis_completo(original_text, uid, filename, mode="ortografia"):
+    # 1. Corrección y Feedback
+    corrected_text = model.correct_full_text(original_text, mode=mode)
     feedback = model.generate_feedback(original_text, corrected_text)
 
-    # Contamos directamente midiendo el tamaño de las listas extraídas
-    conteo_b_v = len(errores_extraidos["B_V"])
-    conteo_g_j = len(errores_extraidos["G_J"])
-    conteo_y_ll = len(errores_extraidos["Y_LL"])
-    conteo_h = len(errores_extraidos["H"])
-    conteo_tildes = len(errores_extraidos["TILDES"])
-    conteo_otros = len(errores_extraidos["OTROS"])
+    # 2. Detección de Tú Impersonal
+    errores_posibles, _ = posible_tu_impersonal(original_text)
+    num_tu = len(errores_posibles) if isinstance(errores_posibles, list) else 0
 
-    # ======== INICIO DE CÓDIGO DE DEBUG ========
-    # 1. Extraemos las listas de errores
+    # 3. Extracción de listas de errores para métricas precisas
     errores_extraidos = extraer_listas_errores(original_text, corrected_text)
     
-    # 2. Imprimir por consola (lo verás en la celda de Colab o terminal donde corre Uvicorn)
-    print("\n" + "="*50)
-    print("DEBUG - LISTAS DE ERRORES EXTRAÍDAS:")
-    import json
-    print(json.dumps(errores_extraidos, indent=2, ensure_ascii=False))
-    print("="*50 + "\n")
-    
-    # 3. Añadir el diccionario al final del texto del feedback para verlo en la web
-    feedback += f"\n\n\n--- DEBUG INFO (Listas de errores) ---\n"
-    for categoria, lista in errores_extraidos.items():
-        feedback += f"- {categoria.upper()}: {lista}\n"
-    # ======== FIN DE CÓDIGO DE DEBUG ========
+    # Debug en consola
+    print("\nDEBUG - ERRORES:", json.dumps(errores_extraidos, indent=2, ensure_ascii=False))
 
-    feedback_lower = feedback.lower()
-    conteo_b_v = feedback_lower.count("b vs v") + feedback_lower.count(" b ") + feedback_lower.count(" v ")
-    conteo_g_j = feedback_lower.count("g vs j") + feedback_lower.count(" g ") + feedback_lower.count(" j ")
-    conteo_y_ll = feedback_lower.count("y vs ll") + feedback_lower.count(" y ") + feedback_lower.count(" ll ")
-    conteo_h = feedback_lower.count("uso de h") + feedback_lower.count("letra h") + feedback_lower.count("omisión de h")
-    conteo_tildes = feedback_lower.count("tilde") + feedback_lower.count("acentuación") + feedback_lower.count("acento")
-
+    # 4. Cálculo de métricas
     sentences = split_into_sentences(original_text)
     total_frases = len(sentences)
-    total_errores = len(errores_posibles)
-    cambios_modelo_total = word_levenshtein_count(original_text, corrected_text)
+    cambios_modelo = word_levenshtein_count(original_text, corrected_text)
 
+    # 5. Guardar en Base de Datos
     text_hash = hashlib.sha256((original_text or "").encode("utf-8")).hexdigest()
-    doc_id = create_document(uid, file.filename, text_hash)
+    doc_id = create_document(uid, filename, text_hash)
 
-# Añadir inserciones en la base de datos (faltaban las de ortografía)
-    insert_metric(doc_id, "total_frases", float(total_frases))
-    insert_metric(doc_id, "frases_con_tu_impersonal", float(total_errores))
-    insert_metric(doc_id, "errores_b_v", float(conteo_b_v))
-    insert_metric(doc_id, "errores_g_j", float(conteo_g_j))
-    insert_metric(doc_id, "errores_y_ll", float(conteo_y_ll))
-    insert_metric(doc_id, "errores_h", float(conteo_h))
-    insert_metric(doc_id, "errores_tildes", float(conteo_tildes))
-    insert_metric(doc_id, "cambios_propuestos_modelo", float(cambios_modelo_total))
-    insert_metric(doc_id, "cambios_realizados_usuario", float(cambios_modelo_total))
-
-    record_usage(uid, "pdf_uploaded", None)
-
-    return {
-            "doc_id": doc_id,
-            "original_text": original_text,
-            "corrected": corrected_text,
-            "feedback": feedback,
-            "errores_posibles": errores_posibles,
-            "mensaje_errores": (
-                "No se detectaron errores de 'tú' impersonal."
-                if not errores_posibles
-                else f"Se detectaron {len(errores_posibles)} posibles usos del 'tú' impersonal."
-            ),
-            "metricas": {
-                "total_frases": total_frases,
-                "frases_con_tu_impersonal": total_errores,
-                "errores_b_v": conteo_b_v,           # <-- Añadido
-                "errores_g_j": conteo_g_j,           # <-- Añadido
-                "errores_y_ll": conteo_y_ll,         # <-- Añadido
-                "errores_h": conteo_h,               # <-- Añadido
-                "errores_tildes": conteo_tildes,     # <-- Añadido
-                "cambios_propuestos_modelo": cambios_modelo_total,
-                "cambios_realizados_usuario": cambios_modelo_total,
-            },
+    metrics_to_save = {
+        "total_frases": total_frases,
+        "frases_con_tu_impersonal": num_tu,
+        "errores_b_v": len(errores_extraidos.get("B_V", [])),
+        "errores_g_j": len(errores_extraidos.get("G_J", [])),
+        "errores_y_ll": len(errores_extraidos.get("Y_LL", [])),
+        "errores_h": len(errores_extraidos.get("H", [])),
+        "errores_tildes": len(errores_extraidos.get("TILDES", [])),
+        "errores_c_z": len(errores_extraidos.get("C_Z", [])),
+        "cambios_propuestos_modelo": cambios_modelo,
+        "cambios_realizados_usuario": cambios_modelo
     }
 
-@app.post("/process_text/")
-async def process_text(
-    username: str = Form(...),
-    text: str = Form(...),
-    filename: str = Form(None),
-):
-    username = sanitize_username(username)
-    uid = get_user_id(username)
-    if uid is None:
-        raise HTTPException(status_code=403, detail="Usuario no válido. Inicia sesión con una cuenta existente.")
-
-    original_text = text or ""
-
-    errores_posibles, _ = posible_tu_impersonal(original_text)
-    if not isinstance(errores_posibles, list):
-        errores_posibles = []
-
-    corrected_text, errores_extraidos = corregir_y_extraer_errores(original_text)
-
-    # Generamos el feedback explicativo
-    feedback = model.generate_feedback(original_text, corrected_text)
-
-    # Contamos directamente midiendo el tamaño de las listas extraídas
-    conteo_b_v = len(errores_extraidos["B_V"])
-    conteo_g_j = len(errores_extraidos["G_J"])
-    conteo_y_ll = len(errores_extraidos["Y_LL"])
-    conteo_h = len(errores_extraidos["H"])
-    conteo_tildes = len(errores_extraidos["TILDES"])
-    conteo_otros = len(errores_extraidos["OTROS"])
-
-    # ======== INICIO DE CÓDIGO DE DEBUG ========
-    # 1. Extraemos las listas de errores
-    errores_extraidos = extraer_listas_errores(original_text, corrected_text)
-    
-    # 2. Imprimir por consola (lo verás en la celda de Colab o terminal donde corre Uvicorn)
-    print("\n" + "="*50)
-    print("DEBUG - LISTAS DE ERRORES EXTRAÍDAS:")
-    import json
-    print(json.dumps(errores_extraidos, indent=2, ensure_ascii=False))
-    print("="*50 + "\n")
-    
-    # 3. Añadir el diccionario al final del texto del feedback para verlo en la web
-    feedback += f"\n\n\n--- DEBUG INFO (Listas de errores) ---\n"
-    for categoria, lista in errores_extraidos.items():
-        feedback += f"- {categoria.upper()}: {lista}\n"
-    # ======== FIN DE CÓDIGO DE DEBUG ========
-
-    feedback_lower = feedback.lower()
-    conteo_b_v = feedback_lower.count("b vs v") + feedback_lower.count(" b ") + feedback_lower.count(" v ")
-    conteo_g_j = feedback_lower.count("g vs j") + feedback_lower.count(" g ") + feedback_lower.count(" j ")
-    conteo_y_ll = feedback_lower.count("y vs ll") + feedback_lower.count(" y ") + feedback_lower.count(" ll ")
-    conteo_h = feedback_lower.count("uso de h") + feedback_lower.count("letra h") + feedback_lower.count("omisión de h")
-    conteo_tildes = feedback_lower.count("tilde") + feedback_lower.count("acentuación") + feedback_lower.count("acento")
-
-    sentences = split_into_sentences(original_text)
-    total_frases = len(sentences)
-    total_errores = len(errores_posibles)
-    cambios_modelo_total = word_levenshtein_count(original_text, corrected_text)
-
-    text_hash = hashlib.sha256((original_text or "").encode("utf-8")).hexdigest()
-    doc_id = create_document(uid, filename or "entrada_texto.txt", text_hash)
-
-    insert_metric(doc_id, "total_frases", float(total_frases))
-    insert_metric(doc_id, "frases_con_tu_impersonal", float(total_errores))
-    insert_metric(doc_id, "cambios_propuestos_modelo", float(cambios_modelo_total))
-    insert_metric(doc_id, "cambios_realizados_usuario", float(cambios_modelo_total))
-    insert_metric(doc_id, "total_frases", float(total_frases))
-    insert_metric(doc_id, "frases_con_tu_impersonal", float(total_errores))
-    insert_metric(doc_id, "errores_b_v", float(conteo_b_v))
-    insert_metric(doc_id, "errores_g_j", float(conteo_g_j))
-    insert_metric(doc_id, "errores_y_ll", float(conteo_y_ll))
-    insert_metric(doc_id, "errores_h", float(conteo_h))
-    insert_metric(doc_id, "errores_tildes", float(conteo_tildes))
-    insert_metric(doc_id, "cambios_propuestos_modelo", float(cambios_modelo_total))
-    insert_metric(doc_id, "cambios_realizados_usuario", float(cambios_modelo_total))
-
-    record_usage(uid, "text_uploaded", None)
+    for name, value in metrics_to_save.items():
+        insert_metric(doc_id, name, float(value))
 
     return {
         "doc_id": doc_id,
@@ -284,44 +156,38 @@ async def process_text(
         "corrected": corrected_text,
         "feedback": feedback,
         "errores_posibles": errores_posibles,
-        "mensaje_errores": (
-            "No se detectaron errores de 'tú' impersonal."
-            if not errores_posibles
-            else f"Se detectaron {len(errores_posibles)} posibles usos del 'tú' impersonal."
-        ),
-        "metricas": {
-            "total_frases": total_frases,
-            "frases_con_tu_impersonal": total_errores,
-            "errores_b_v": conteo_b_v,           # <-- Añadido
-            "errores_g_j": conteo_g_j,           # <-- Añadido
-            "errores_y_ll": conteo_y_ll,         # <-- Añadido
-            "errores_h": conteo_h,               # <-- Añadido
-            "errores_tildes": conteo_tildes,     # <-- Añadido
-            "cambios_propuestos_modelo": cambios_modelo_total,
-            "cambios_realizados_usuario": cambios_modelo_total,
-        },
+        "metricas": metrics_to_save
     }
 
-@app.post("/documents/{doc_id}/metrics")
-def add_document_metric(
-    doc_id: int,
-    name: str = Form(...),
-    value: float = Form(...),
-):
-    try:
-        insert_metric(doc_id, name, float(value))
-        return {"ok": True, "document_id": doc_id, "metric_name": name, "metric_value": float(value)}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+@app.post("/process/")
+async def process_pdf(file: UploadFile = File(...), username: str = Form(...), mode: str = Form("ortografia")):
+    username = sanitize_username(username)
+    uid = get_user_id(username)
+    if uid is None:
+        raise HTTPException(status_code=403, detail="Usuario no válido.")
+    content = await file.read()
+    text = extract_text_from_pdf(content)
+    record_usage(uid, "pdf_uploaded", None)
+    return procesar_analisis_completo(text, uid, file.filename, mode)
+
+@app.post("/process_text/")
+async def process_text(username: str = Form(...), text: str = Form(...), mode: str = Form("ortografia"), filename: str = Form(None)):
+    username = sanitize_username(username)
+    uid = get_user_id(username)
+    if uid is None:
+        raise HTTPException(status_code=403, detail="Usuario no válido.")
+    record_usage(uid, "text_uploaded", None)
+    return procesar_analisis_completo(text, uid, filename or "texto_manual.txt", mode)
+
+# ============================================================
+# GESTIÓN DE DOCUMENTOS
+# ============================================================
 
 @app.post("/documents/{doc_id}/user_changes")
-def update_user_changes(
-    doc_id: int,
-    changes: int = Form(...),
-):
+def update_user_changes(doc_id: int, changes: int = Form(...)):
     try:
         insert_metric(doc_id, "cambios_realizados_usuario", float(changes))
-        return {"ok": True, "document_id": doc_id, "metric_name": "cambios_realizados_usuario", "metric_value": float(changes)}
+        return {"ok": True}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -343,7 +209,6 @@ def user_weekly_activity(username: str):
 
 @app.delete("/documents/{doc_id}")
 def delete_doc(doc_id: int):
-    ok = delete_document(doc_id)
-    if not ok:
+    if not delete_document(doc_id):
         raise HTTPException(status_code=404, detail="Documento no encontrado.")
     return {"ok": True, "deleted_id": doc_id}
