@@ -1,3 +1,4 @@
+# backend/model.py
 import time
 import threading
 from typing import List, Optional
@@ -15,39 +16,54 @@ _model: Optional[AutoModelForCausalLM] = None
 
 MODEL_ID = "mistralai/Mistral-7B-Instruct-v0.3"
 
-# --- PROMPTS SEPARADOS ---
+# --- PROMPTS UNIFICADOS Y MEJORADOS ---
 
 PROMPT_ORTOGRAFIA = """<s>[INST] <<SYS>>
-Eres un experto en ortografía española. Tu única tarea es corregir:
+Eres un experto lingüista de la RAE. Tu tarea es corregir TODAS las faltas de ortografía:
 - Confusión entre B/V, G/J, Y/LL.
-- Uso de la H.
-- Tildes y acentuación.
-REGLA: No cambies el "tú" impersonal ni el estilo. No añadas comentarios.
+- Confusión entre C, Z y S (ej: 'asé' -> 'haz').
+- Uso de la H (omitida o mal puesta).
+- Tildes y acentuación académica.
+- Errores generales (M antes de P, S por X, etc.).
+
+REGLAS: 
+1. NO cambies el "tú" impersonal ni el estilo. 
+2. NO sustituyas palabras por sinónimos. 
+3. No añadas comentarios. Solo devuelve el texto corregido.
 <</SYS>>
 Texto a corregir:
 [TEXTO] [/INST]"""
 
 PROMPT_TU_IMPERSONAL = """<s>[INST] <<SYS>>
 Eres un experto en redacción académica. Tu única tarea es:
-- Transformar verbos en 2ª persona singular (tú impersonal) a la forma impersonal con "se".
-REGLA: No corrijas ortografía ni tildes. No cambies el tiempo verbal. No añadas comentarios.
+- Transformar verbos en 2ª persona singular (tú impersonal) a la forma impersonal con "se" o infinitivos.
+REGLA: No corrijas ortografía ni tildes. No cambies el tiempo verbal. No añadas comentarios. Solo devuelve el texto corregido.
 <</SYS>>
 Texto a corregir:
 [TEXTO] [/INST]"""
 
+PROMPT_FEEDBACK = """<s>[INST] <<SYS>>
+Eres un tutor de español meticuloso. Tu tarea es explicar las correcciones realizadas.
+Categoriza en: B vs V, G vs J, Y vs LL, uso de H, tildes, C/Z/S o tú impersonal.
+Indica: Palabra original -> Palabra corregida y la regla aplicada.
+<</SYS>>
+Texto original: [ORIGINAL]
+Texto corregido: [CORREGIDO]
+Explicación: [/INST]"""
+
 # --- GENERACIÓN ---
 
 @torch.inference_mode()
-def _generate_once(text: str, mode: str = "ortografia", max_new_tokens: int = 512) -> str:
+def _generate_once(text: str, mode: str = "ortografia", max_new_tokens: int = 1024) -> str:
     global _tokenizer, _model
     if not MODEL_LOADED or _tokenizer is None or _model is None:
         raise RuntimeError("El modelo no está cargado.")
     
-    # Selección dinámica del prompt
+    # Selección de template según el modo
     template = PROMPT_ORTOGRAFIA if mode == "ortografia" else PROMPT_TU_IMPERSONAL
     prompt = template.replace("[TEXTO]", text.strip())
     
-    inputs = _tokenizer(prompt, return_tensors="pt", padding=True, truncation=True)
+    inputs = _tokenizer(prompt, return_tensors="pt", padding=True, truncation=True, max_length=4096)
     if hasattr(_model, "device"):
         inputs = {k: v.to(_model.device) for k, v in inputs.items()}
     
@@ -70,44 +86,26 @@ def correct_full_text(text: str, mode: str = "ortografia") -> str:
 # --- FEEDBACK ---
 
 def generate_feedback(original: str, corrected: str) -> str:
-    if not original or not corrected:
-        return ""
-
-    from backend.metrics import extract_word_changes
-
+    if not original or not corrected: return ""
+    
+    # Si el texto es idéntico, no hay feedback
     if original.strip() == corrected.strip():
         return "No se han detectado errores para corregir en este modo."
 
-    RULES = {
-        "bv": "B/V: se escriben según la raíz de la palabra.",
-        "gj": "G/J: corrección de sonido fuerte/suave ante e/i.",
-        "yll": "Y/LL: corrección ortográfica de grafías similares.",
-        "h": "H: corrección de h muda u omitida.",
-        "tildes": "Tildes: ajuste de acentuación según reglas generales.",
-        "tu_impersonal": "Transformación del 'tú' impersonal a forma con 'se'.",
-        "ortografia": "Corrección ortográfica general.",
-    }
+    # Intentar generar feedback pedagógico con el modelo
+    prompt = PROMPT_FEEDBACK.replace("[ORIGINAL]", original).replace("[CORREGIDO]", corrected)
+    
+    # Si prefieres el feedback por reglas programadas, podrías importar extract_word_changes aquí
+    # Por ahora usamos la generación del modelo para mayor flexibilidad pedagógica
+    inputs = _tokenizer(prompt, return_tensors="pt", padding=True, truncation=True)
+    if hasattr(_model, "device"):
+        inputs = {k: v.to(_model.device) for k, v in inputs.items()}
+    
+    output_ids = _model.generate(**inputs, max_new_tokens=512, do_sample=False, temperature=0.0)
+    generated = output_ids[0][inputs["input_ids"].shape[-1]:]
+    return _tokenizer.decode(generated, skip_special_tokens=True).strip()
 
-    # 🔥 SIN LÍMITE DE CAMBIOS
-    changes = extract_word_changes(original, corrected, max_items=1000)
-
-    # Si no detecta cambios pero el texto cambió → tú impersonal
-    if not changes:
-        return "Se ha transformado el estilo directo (tú) a una forma impersonal con 'se'."
-
-    lines = ["Cambios realizados:\n"]
-
-    for idx, ch in enumerate(changes, 1):
-        orig_w = ch.get("original", "")
-        corr_w = ch.get("corrected", "")
-        cat = ch.get("categories", ["ortografia"])[0]
-        rule = RULES.get(cat, "Mejora de la precisión léxica.")
-        lines.append(f"{idx}. {orig_w} → {corr_w} ({rule})")
-
-    return "\n".join(lines)
-
-
-# --- CARGA DEL MODELO (Igual que el tuyo) ---
+# --- CARGA DEL MODELO ---
 
 def _set(progress: int, message: str):
     global LOAD_PROGRESS, LOAD_MESSAGE
@@ -118,7 +116,7 @@ def _set(progress: int, message: str):
 def _load_impl():
     global MODEL_LOADED, _tokenizer, _model
     try:
-        _set(5, "Iniciando Mistral...")
+        _set(5, "Iniciando carga del modelo...")
         compute_dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float16
         nf4_config = BitsAndBytesConfig(
             load_in_4bit=True,
@@ -130,11 +128,11 @@ def _load_impl():
         if _tokenizer.pad_token is None: _tokenizer.pad_token = _tokenizer.eos_token
         
         _model = AutoModelForCausalLM.from_pretrained(
-            MODEL_ID, quantization_config=nf4_config, device_map="auto"
+            MODEL_ID, quantization_config=nf4_config, device_map="auto", trust_remote_code=True
         )
         _model.eval()
         MODEL_LOADED = True
-        _set(100, "✅ Modelo listo")
+        _set(100, "✅ Modelo cargado y listo")
     except Exception as e:
         _set(0, f"❌ Error: {e}")
 
