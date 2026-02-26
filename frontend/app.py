@@ -8,6 +8,53 @@ import hashlib
 from rapidfuzz.distance import Levenshtein as L
 from streamlit.components.v1 import html as st_html
 import altair as alt
+import random
+
+EJERCICIOS_BASE = {
+    "B_V": [
+        {"masked": "a_uela", "opciones": ["b", "v"], "correcta": "b", "palabra": "abuela"},
+        {"masked": "in_ierno", "opciones": ["b", "v"], "correcta": "v", "palabra": "invierno"},
+        {"masked": "_izcocho", "opciones": ["b", "v"], "correcta": "b", "palabra": "bizcocho"},
+        {"masked": "mo_ilidad", "opciones": ["b", "v"], "correcta": "v", "palabra": "movilidad"},
+        {"masked": "ob_io", "opciones": ["b", "v"], "correcta": "v", "palabra": "obvio"},
+    ],
+    "G_J": [
+        {"masked": "gara_e", "opciones": ["g", "j"], "correcta": "j", "palabra": "garaje"},
+        {"masked": "_igante", "opciones": ["g", "j"], "correcta": "g", "palabra": "gigante"},
+        {"masked": "extrran_ero", "opciones": ["g", "j"], "correcta": "j", "palabra": "extranjero"},
+        {"masked": "co_er", "opciones": ["g", "j"], "correcta": "g", "palabra": "coger"},
+        {"masked": "te_er", "opciones": ["g", "j"], "correcta": "j", "palabra": "tejer"},
+    ],
+    "Y_LL": [
+        {"masked": "_ogur", "opciones": ["y", "ll"], "correcta": "y", "palabra": "yogur"},
+        {"masked": "caba_o", "opciones": ["y", "ll"], "correcta": "ll", "palabra": "caballo"},
+        {"masked": "pro_ecto", "opciones": ["y", "ll"], "correcta": "y", "palabra": "proyecto"},
+        {"masked": " deta_e", "opciones": ["y", "ll"], "correcta": "ll", "palabra": "detalle"},
+        {"masked": "a_er", "opciones": ["y", "ll"], "correcta": "y", "palabra": "ayer"},
+    ],
+    "C_Z": [
+        {"masked": "cora_ón", "opciones": ["c", "z", "s"], "correcta": "z", "palabra": "corazón"},
+        {"masked": "deci_ión", "opciones": ["c", "z", "s"], "correcta": "s", "palabra": "decisión"},
+        {"masked": "hicistei_", "opciones": ["c", "z", "s"], "correcta": "s", "palabra": "hicisteis"},
+        {"masked": "ilu_ión", "opciones": ["c", "z", "s"], "correcta": "s", "palabra": "ilusión"},
+        {"masked": "pe_es", "opciones": ["c", "z", "s"], "correcta": "c", "palabra": "peces"},
+    ],
+    "H": [
+        {"masked": "_ielo", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "hielo"},
+        {"masked": "_orario", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "horario"},
+        {"masked": "_ojalá", "opciones": ["h", "Ø (nada)"], "correcta": "Ø (nada)", "palabra": "ojalá"},
+        {"masked": "almo_ada", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "almohada"},
+        {"masked": "e_xhibición", "opciones": ["h", "Ø (nada)"], "correcta": "Ø (nada)", "palabra": "exhibición"},
+    ],
+    "TILDES": [
+        {"masked": "canci_n", "opciones": ["o", "ó"], "correcta": "ó", "palabra": "canción"},
+        {"masked": "arbol", "opciones": ["a", "á"], "correcta": "á", "palabra": "árbol"},
+        {"masked": "exam_n", "opciones": ["e", "é"], "correcta": "e", "palabra": "examen"}, # Llana acabada en n
+        {"masked": "r_pido", "opciones": ["a", "á"], "correcta": "á", "palabra": "rápido"},
+    ]
+}
+
+
 
 st.set_page_config(page_title="PALABRIA", layout="centered")
 
@@ -636,6 +683,12 @@ def main_app():
     if st.session_state.get("logged_in", False):
         st.sidebar.success(f"Sesión iniciada como: {st.session_state['usuario']}")
         inject_session_js(backend_url, st.session_state["usuario"])
+        
+        # --- NUEVO: Menú de navegación ---
+        st.sidebar.markdown("---")
+        modo_app = st.sidebar.radio("Navegación", ["📝 Corrector de Textos", "🏋️ Gimnasio Ortográfico"])
+        st.sidebar.markdown("---")
+        # ---------------------------------
 
         if st.sidebar.button("🔚 Cerrar sesión"):
             try:
@@ -664,6 +717,13 @@ def main_app():
             st.session_state["show_create_account"] = True
             st.session_state["show_login"] = False
             st.rerun()
+
+    if st.session_state.get("logged_in", False):
+        if modo_app == "🏋️ Gimnasio Ortográfico":
+            mostrar_gimnasio(backend_url, st.session_state["usuario"])
+            return # Detenemos la ejecución aquí para que no dibuje el corrector
+    
+    st.title("📝 PALABRIA - Corrector de Textos")
 
     if st.session_state.get("show_login", False):
         login()
@@ -932,6 +992,146 @@ def main_app():
 
     with tabs[1]:
         ver_mis_metricas(st.session_state["usuario"], backend_url)
+
+def obtener_ejercicios_backend(backend_url, username, categoria):
+    """Obtiene palabras de la bolsa del usuario y las formatea como tarjetas."""
+    try:
+        r = requests.get(f"{backend_url}/users/{username}/ejercicios", timeout=10)
+        if r.ok:
+            palabras_bolsa = r.json().get("ejercicios", [])
+            ejercicios_formateados = []
+            for p in palabras_bolsa:
+                # Filtramos por categoría si no es REMIX
+                cat_db = p["categoria"].upper()
+                if categoria != "REMIX" and cat_db not in categoria:
+                    continue
+                
+                # Para los errores del backend, creamos un ejercicio de elegir la correcta
+                opciones = [p["palabra_correcta"], p["palabra_fallada"]]
+                random.shuffle(opciones)
+                ejercicios_formateados.append({
+                    "masked": "¿Cómo se escribe?", 
+                    "opciones": opciones, 
+                    "correcta": p["palabra_correcta"], 
+                    "palabra": p["palabra_correcta"],
+                    "backend_id": p["id"] # ¡Clave para luego restar el acierto!
+                })
+            return ejercicios_formateados
+    except Exception as e:
+        st.error(f"Error cargando tu bolsa de palabras: {e}")
+    return []
+
+def mostrar_gimnasio(backend_url, username):
+    st.markdown("""
+    <style>
+    .gym-card {
+        background: linear-gradient(135deg, #e0eafc, #cfdef3);
+        border-radius: 15px;
+        padding: 2rem;
+        text-align: center;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        margin-bottom: 2rem;
+    }
+    .gym-word {
+        font-size: 3rem !important;
+        font-weight: 800;
+        color: #1e3a8a;
+        letter-spacing: 2px;
+        margin-bottom: 1rem;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<h1 style='text-align: center;'>🏋️ Gimnasio Ortográfico</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; font-size:1.1rem;'>Entrena tu mente. Las palabras que falles en el corrector aparecerán aquí para que las repases.</p>", unsafe_allow_html=True)
+    st.markdown("<div class='spacer-1cm'></div>", unsafe_allow_html=True)
+
+    # Inicializar estado del gimnasio
+    if "gym_estado" not in st.session_state:
+        st.session_state.gym_estado = "configuracion" # configuracion | jugando | resultados
+        st.session_state.gym_preguntas = []
+        st.session_state.gym_index = 0
+        st.session_state.gym_score = 0
+
+    if st.session_state.gym_estado == "configuracion":
+        st.markdown("<h3 class='h-section'>1. Elige tu entrenamiento</h3>", unsafe_allow_html=True)
+        categoria = st.selectbox("Categoría a repasar:", ["REMIX", "B_V", "G_J", "Y_LL", "C_Z", "H", "TILDES"])
+        
+        if st.button("🚀 ¡Empezar Entrenamiento!", use_container_width=True):
+            # 1. Cargar palabras base
+            preguntas = []
+            if categoria == "REMIX":
+                for cat in EJERCICIOS_BASE.values():
+                    preguntas.extend(cat)
+            else:
+                preguntas.extend(EJERCICIOS_BASE.get(categoria, []))
+            
+            # 2. Cargar palabras de la bolsa del usuario
+            preguntas_backend = obtener_ejercicios_backend(backend_url, username, categoria)
+            preguntas.extend(preguntas_backend)
+
+            # 3. Mezclar y seleccionar 10 preguntas (o las que haya)
+            random.shuffle(preguntas)
+            st.session_state.gym_preguntas = preguntas[:10]
+            st.session_state.gym_index = 0
+            st.session_state.gym_score = 0
+            
+            if len(st.session_state.gym_preguntas) > 0:
+                st.session_state.gym_estado = "jugando"
+                st.rerun()
+            else:
+                st.warning("No hay suficientes palabras para esta categoría. ¡Prueba con REMIX!")
+
+    elif st.session_state.gym_estado == "jugando":
+        pregunta_actual = st.session_state.gym_preguntas[st.session_state.gym_index]
+        total_preguntas = len(st.session_state.gym_preguntas)
+        
+        st.progress((st.session_state.gym_index) / total_preguntas)
+        st.caption(f"Pregunta {st.session_state.gym_index + 1} de {total_preguntas}")
+
+        # Tarjeta visual
+        st.markdown(f"""
+        <div class="gym-card">
+            <div class="gym-word">{pregunta_actual['masked']}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("<h3 style='text-align:center;'>Selecciona la respuesta correcta:</h3>", unsafe_allow_html=True)
+        
+        cols = st.columns(len(pregunta_actual['opciones']))
+        for i, opcion in enumerate(pregunta_actual['opciones']):
+            if cols[i].button(opcion, key=f"btn_{st.session_state.gym_index}_{i}", use_container_width=True):
+                # Verificar respuesta
+                if opcion == pregunta_actual['correcta']:
+                    st.toast("¡Correcto! 🎉", icon="✅")
+                    st.session_state.gym_score += 1
+                    
+                    # Si es del backend, restar un acierto en la base de datos
+                    if "backend_id" in pregunta_actual:
+                        requests.post(f"{backend_url}/ejercicios/{pregunta_actual['backend_id']}/acierto", timeout=5)
+                else:
+                    st.toast(f"¡Oops! La correcta era '{pregunta_actual['palabra']}'", icon="❌")
+                
+                # Siguiente pregunta
+                st.session_state.gym_index += 1
+                if st.session_state.gym_index >= total_preguntas:
+                    st.session_state.gym_estado = "resultados"
+                st.rerun()
+
+        if st.button("Abandonar entrenamiento", type="secondary"):
+            st.session_state.gym_estado = "configuracion"
+            st.rerun()
+
+    elif st.session_state.gym_estado == "resultados":
+        st.balloons()
+        st.markdown("<div class='gym-card'>", unsafe_allow_html=True)
+        st.markdown("<h2 style='color: #1e3a8a;'>¡Entrenamiento Completado! 🏆</h2>", unsafe_allow_html=True)
+        st.markdown(f"<h1>{st.session_state.gym_score} / {len(st.session_state.gym_preguntas)}</h1>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+        
+        if st.button("Volver al Gimnasio", use_container_width=True):
+            st.session_state.gym_estado = "configuracion"
+            st.rerun()
 
 if __name__ == "__main__":
     main_app()

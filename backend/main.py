@@ -15,12 +15,15 @@ from backend.utils import (
     posible_tu_impersonal, 
     corregir_y_extraer_errores
 )
+
 from backend.db import (
     init_db, user_exists, create_user, get_user_id,
     record_usage, create_document, insert_metric,
     get_user_overview, get_user_documents, get_document_metrics,
     sanitize_username, delete_document, record_login_ts,
-    close_open_session, get_user_weekly_activity
+    close_open_session, get_user_weekly_activity,
+    agregar_palabras_bolsa, obtener_palabras_repaso, 
+    registrar_acierto_palabra
 )
 
 app = FastAPI(title="PALABRIA Backend")
@@ -131,6 +134,8 @@ def procesar_analisis_completo(original_text, uid, filename, mode="ortografia"):
     text_hash = hashlib.sha256((original_text or "").encode("utf-8")).hexdigest()
     doc_id = create_document(uid, filename, text_hash)
 
+    agregar_palabras_bolsa(uid, errores_extraidos)
+
     metrics_to_save = {
         "total_frases": total_frases,
         "frases_con_tu_impersonal": num_tu,
@@ -210,3 +215,19 @@ def delete_doc(doc_id: int):
     if not delete_document(doc_id):
         raise HTTPException(status_code=404, detail="Documento no encontrado.")
     return {"ok": True, "deleted_id": doc_id}
+
+@app.get("/users/{username}/ejercicios")
+def obtener_ejercicios(username: str):
+    """Devuelve la bolsa de palabras pendientes del usuario."""
+    username = sanitize_username(username)
+    palabras = obtener_palabras_repaso(username)
+    return {"ok": True, "palabras_pendientes": len(palabras), "ejercicios": palabras}
+
+@app.post("/ejercicios/{palabra_id}/acierto")
+def registrar_acierto(palabra_id: int):
+    """El frontend llama aquí cuando el usuario acierta la palabra en el ejercicio."""
+    try:
+        registrar_acierto_palabra(palabra_id)
+        return {"ok": True, "mensaje": "Acierto registrado"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

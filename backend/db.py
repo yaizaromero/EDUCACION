@@ -55,6 +55,18 @@ CREATE TABLE IF NOT EXISTS usage_stats(
   created_at TEXT DEFAULT (datetime('now')),
   FOREIGN KEY(user_id) REFERENCES users(id)
 );
+
+CREATE TABLE IF NOT EXISTS bolsa_palabras(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  categoria TEXT NOT NULL,
+  palabra_fallada TEXT NOT NULL,
+  palabra_correcta TEXT NOT NULL,
+  aciertos_restantes INTEGER DEFAULT 3,
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY(user_id) REFERENCES users(id),
+  UNIQUE(user_id, palabra_fallada, categoria)
+);
 """
 
 def init_db():
@@ -345,3 +357,37 @@ def delete_document(doc_id: int) -> bool:
         con.execute("DELETE FROM metrics WHERE document_id=?", (doc_id,))
         cur = con.execute("DELETE FROM documents WHERE id=?", (doc_id,))
         return cur.rowcount > 0
+    
+def agregar_palabras_bolsa(user_id: int, listas_errores: dict):
+    """Guarda los errores en la bolsa. Si ya existía el error, reinicia los aciertos a 3."""
+    with db() as con:
+        for categoria, errores in listas_errores.items():
+            for palabra_fallada, palabra_correcta in errores:
+                # Upsert: Si la palabra ya está en la bolsa, le volvemos a poner 3 aciertos restantes
+                con.execute("""
+                    INSERT INTO bolsa_palabras (user_id, categoria, palabra_fallada, palabra_correcta, aciertos_restantes)
+                    VALUES (?, ?, ?, ?, 3)
+                    ON CONFLICT(user_id, palabra_fallada, categoria) 
+                    DO UPDATE SET aciertos_restantes = 3, palabra_correcta = excluded.palabra_correcta
+                """, (user_id, categoria, palabra_fallada, palabra_correcta))
+
+def obtener_palabras_repaso(username: str):
+    """Devuelve las palabras que al usuario le quedan por acertar."""
+    user_id = get_user_id(username)
+    with db() as con:
+        rows = con.execute("""
+            SELECT id, categoria, palabra_fallada, palabra_correcta, aciertos_restantes
+            FROM bolsa_palabras
+            WHERE user_id=? AND aciertos_restantes > 0
+            ORDER BY RANDOM() -- Para que los ejercicios salgan mezclados
+        """, (user_id,)).fetchall()
+        return [dict(r) for r in rows]
+
+def registrar_acierto_palabra(palabra_id: int):
+    """Resta 1 al contador de aciertos. Si llega a 0, ya no aparecerá."""
+    with db() as con:
+        con.execute("""
+            UPDATE bolsa_palabras 
+            SET aciertos_restantes = aciertos_restantes - 1 
+            WHERE id=? AND aciertos_restantes > 0
+        """, (palabra_id,))
