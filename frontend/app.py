@@ -22,6 +22,7 @@ PRETTY = {
     "errores_y_ll": "Errores de Y vs LL",
     "errores_h": "Errores de H",
     "errores_tildes": "Errores de tildes",
+    "errores_c_z": "Errores de C / Z / S",
     "cambios_propuestos_modelo": "Cambios propuestos (modelo)",
     "cambios_realizados_usuario": "Cambios realizados (usuario)",
 }
@@ -29,7 +30,7 @@ SHOW_KEYS = list(PRETTY.keys())
 
 # Backend modes
 MODE_OPTIONS = {
-    "📝 Ortografía (B/V, G/J, Y/LL, H, tildes)": "ortografia",
+    "📝 Ortografía completa (B/V, G/J, Y/LL, H, C/Z, tildes)": "ortografia",
     "👤 Tú impersonal → impersonal con “se”": "tu_impersonal",
 }
 
