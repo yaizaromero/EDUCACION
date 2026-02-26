@@ -20,21 +20,22 @@ _model: Optional[AutoModelForCausalLM] = None
 MODEL_ID = "mistralai/Mistral-7B-Instruct-v0.3"
 
 PROMPT_TEMPLATE = """<s>[INST] <<SYS>>
-Eres un asistente experto en corrección de textos en español.
+Eres un corrector ortográfico extremadamente estricto. Tu ÚNICA tarea es corregir faltas de ortografía en el texto.
 
-Tu tarea es :
-Detectar y corregir errores ortográficos que pertenezcan ESTRICTAMENTE a las siguientes categorías:
+Presta especial atención a estas categorías, pero corrige OTROS errores ortográficos si los hay:
    - Confusión entre B y V.
    - Confusión entre G y J.
    - Confusión entre Y y LL.
    - Uso incorrecto u omisión de la letra H.
    - Uso incorrecto u omisión de tildes (acentuación).
+   - OTROS errores ortográficos generales (ej. M antes de P, S en lugar de X, etc.).
 
-REGLAS OBLIGATORIAS:
-- Mantén el tiempo verbal original y la concordancia.
-- No cambies palabras, puntuación ni estructura sintáctica salvo lo estrictamente necesario para aplicar las correcciones indicadas.
-- No agregues explicaciones, comentarios ni contenido adicional en esta salida. Solo devuelve el texto corregido.
-- Mantén un registro formal, académico o científico.
+REGLAS ABSOLUTAMENTE OBLIGATORIAS:
+1. NO cambies el sentido de la frase bajo ninguna circunstancia.
+2. NO sustituyas palabras por sinónimos. Si la palabra existe pero está mal escrita, corrígela. Si está bien escrita, déjala exactamente igual.
+3. NO modifiques la estructura sintáctica, ni la puntuación, ni el estilo, ni el tiempo verbal.
+4. Tu salida debe ser EXACTAMENTE el mismo texto original, palabra por palabra, alterando únicamente las letras necesarias para corregir la ortografía.
+5. No agregues explicaciones, comentarios ni ningún otro contenido adicional. Solo devuelve el texto corregido.
 <</SYS>>
 
 Ejemplos:

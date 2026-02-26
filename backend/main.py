@@ -6,7 +6,7 @@ import time
 
 import backend.model as model
 from backend.metrics import _normalize_for_diff, word_levenshtein_count
-from backend.utils import extract_text_from_pdf, split_into_sentences, posible_tu_impersonal
+from backend.utils import corregir_y_extraer_errores, extract_text_from_pdf, split_into_sentences, posible_tu_impersonal, extraer_listas_errores
 from backend.db import (
     init_db, user_exists, create_user, get_user_id,
     record_usage, create_document, insert_metric,
@@ -118,8 +118,36 @@ async def process_pdf(
     if not isinstance(errores_posibles, list):
         errores_posibles = []
 
-    corrected_text = model.correct_full_text(original_text)
+    corrected_text, errores_extraidos = corregir_y_extraer_errores(original_text)
+
+    # Generamos el feedback explicativo
     feedback = model.generate_feedback(original_text, corrected_text)
+
+    # Contamos directamente midiendo el tamaño de las listas extraídas
+    conteo_b_v = len(errores_extraidos["B_V"])
+    conteo_g_j = len(errores_extraidos["G_J"])
+    conteo_y_ll = len(errores_extraidos["Y_LL"])
+    conteo_h = len(errores_extraidos["H"])
+    conteo_tildes = len(errores_extraidos["TILDES"])
+    conteo_otros = len(errores_extraidos["OTROS"])
+
+    # ======== INICIO DE CÓDIGO DE DEBUG ========
+    # 1. Extraemos las listas de errores
+    errores_extraidos = extraer_listas_errores(original_text, corrected_text)
+    
+    # 2. Imprimir por consola (lo verás en la celda de Colab o terminal donde corre Uvicorn)
+    print("\n" + "="*50)
+    print("DEBUG - LISTAS DE ERRORES EXTRAÍDAS:")
+    import json
+    print(json.dumps(errores_extraidos, indent=2, ensure_ascii=False))
+    print("="*50 + "\n")
+    
+    # 3. Añadir el diccionario al final del texto del feedback para verlo en la web
+    feedback += f"\n\n\n--- DEBUG INFO (Listas de errores) ---\n"
+    for categoria, lista in errores_extraidos.items():
+        feedback += f"- {categoria.upper()}: {lista}\n"
+    # ======== FIN DE CÓDIGO DE DEBUG ========
+
     feedback_lower = feedback.lower()
     conteo_b_v = feedback_lower.count("b vs v") + feedback_lower.count(" b ") + feedback_lower.count(" v ")
     conteo_g_j = feedback_lower.count("g vs j") + feedback_lower.count(" g ") + feedback_lower.count(" j ")
@@ -135,30 +163,41 @@ async def process_pdf(
     text_hash = hashlib.sha256((original_text or "").encode("utf-8")).hexdigest()
     doc_id = create_document(uid, file.filename, text_hash)
 
+# Añadir inserciones en la base de datos (faltaban las de ortografía)
     insert_metric(doc_id, "total_frases", float(total_frases))
     insert_metric(doc_id, "frases_con_tu_impersonal", float(total_errores))
+    insert_metric(doc_id, "errores_b_v", float(conteo_b_v))
+    insert_metric(doc_id, "errores_g_j", float(conteo_g_j))
+    insert_metric(doc_id, "errores_y_ll", float(conteo_y_ll))
+    insert_metric(doc_id, "errores_h", float(conteo_h))
+    insert_metric(doc_id, "errores_tildes", float(conteo_tildes))
     insert_metric(doc_id, "cambios_propuestos_modelo", float(cambios_modelo_total))
     insert_metric(doc_id, "cambios_realizados_usuario", float(cambios_modelo_total))
 
     record_usage(uid, "pdf_uploaded", None)
 
     return {
-        "doc_id": doc_id,
-        "original_text": original_text,
-        "corrected": corrected_text,
-        "feedback": feedback,
-        "errores_posibles": errores_posibles,
-        "mensaje_errores": (
-            "No se detectaron errores de 'tú' impersonal."
-            if not errores_posibles
-            else f"Se detectaron {len(errores_posibles)} posibles usos del 'tú' impersonal."
-        ),
-        "metricas": {
-            "total_frases": total_frases,
-            "frases_con_tu_impersonal": total_errores,
-            "cambios_propuestos_modelo": cambios_modelo_total,
-            "cambios_realizados_usuario": cambios_modelo_total,
-        },
+            "doc_id": doc_id,
+            "original_text": original_text,
+            "corrected": corrected_text,
+            "feedback": feedback,
+            "errores_posibles": errores_posibles,
+            "mensaje_errores": (
+                "No se detectaron errores de 'tú' impersonal."
+                if not errores_posibles
+                else f"Se detectaron {len(errores_posibles)} posibles usos del 'tú' impersonal."
+            ),
+            "metricas": {
+                "total_frases": total_frases,
+                "frases_con_tu_impersonal": total_errores,
+                "errores_b_v": conteo_b_v,           # <-- Añadido
+                "errores_g_j": conteo_g_j,           # <-- Añadido
+                "errores_y_ll": conteo_y_ll,         # <-- Añadido
+                "errores_h": conteo_h,               # <-- Añadido
+                "errores_tildes": conteo_tildes,     # <-- Añadido
+                "cambios_propuestos_modelo": cambios_modelo_total,
+                "cambios_realizados_usuario": cambios_modelo_total,
+            },
     }
 
 @app.post("/process_text/")
@@ -178,8 +217,36 @@ async def process_text(
     if not isinstance(errores_posibles, list):
         errores_posibles = []
 
-    corrected_text = model.correct_full_text(original_text)
+    corrected_text, errores_extraidos = corregir_y_extraer_errores(original_text)
+
+    # Generamos el feedback explicativo
     feedback = model.generate_feedback(original_text, corrected_text)
+
+    # Contamos directamente midiendo el tamaño de las listas extraídas
+    conteo_b_v = len(errores_extraidos["B_V"])
+    conteo_g_j = len(errores_extraidos["G_J"])
+    conteo_y_ll = len(errores_extraidos["Y_LL"])
+    conteo_h = len(errores_extraidos["H"])
+    conteo_tildes = len(errores_extraidos["TILDES"])
+    conteo_otros = len(errores_extraidos["OTROS"])
+
+    # ======== INICIO DE CÓDIGO DE DEBUG ========
+    # 1. Extraemos las listas de errores
+    errores_extraidos = extraer_listas_errores(original_text, corrected_text)
+    
+    # 2. Imprimir por consola (lo verás en la celda de Colab o terminal donde corre Uvicorn)
+    print("\n" + "="*50)
+    print("DEBUG - LISTAS DE ERRORES EXTRAÍDAS:")
+    import json
+    print(json.dumps(errores_extraidos, indent=2, ensure_ascii=False))
+    print("="*50 + "\n")
+    
+    # 3. Añadir el diccionario al final del texto del feedback para verlo en la web
+    feedback += f"\n\n\n--- DEBUG INFO (Listas de errores) ---\n"
+    for categoria, lista in errores_extraidos.items():
+        feedback += f"- {categoria.upper()}: {lista}\n"
+    # ======== FIN DE CÓDIGO DE DEBUG ========
+
     feedback_lower = feedback.lower()
     conteo_b_v = feedback_lower.count("b vs v") + feedback_lower.count(" b ") + feedback_lower.count(" v ")
     conteo_g_j = feedback_lower.count("g vs j") + feedback_lower.count(" g ") + feedback_lower.count(" j ")
@@ -225,6 +292,11 @@ async def process_text(
         "metricas": {
             "total_frases": total_frases,
             "frases_con_tu_impersonal": total_errores,
+            "errores_b_v": conteo_b_v,           # <-- Añadido
+            "errores_g_j": conteo_g_j,           # <-- Añadido
+            "errores_y_ll": conteo_y_ll,         # <-- Añadido
+            "errores_h": conteo_h,               # <-- Añadido
+            "errores_tildes": conteo_tildes,     # <-- Añadido
             "cambios_propuestos_modelo": cambios_modelo_total,
             "cambios_realizados_usuario": cambios_modelo_total,
         },
