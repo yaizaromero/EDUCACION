@@ -176,6 +176,7 @@ def extraer_listas_errores(texto_original: str, texto_corregido: str) -> dict:
                         listas_errores[cat].append((w_orig, w_corr))
                         
     return listas_errores
+
 def corregir_y_extraer_errores(texto: str):
     """
     Función principal para usar en cualquier parte de tu código.

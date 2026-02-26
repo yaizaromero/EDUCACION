@@ -4,6 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import hashlib
 import time
 import json
+import os
+from datetime import datetime
 
 import backend.model as model
 from backend.metrics import compute_metrics, word_levenshtein_count
@@ -11,7 +13,7 @@ from backend.utils import (
     extract_text_from_pdf, 
     split_into_sentences, 
     posible_tu_impersonal, 
-    extraer_listas_errores
+    corregir_y_extraer_errores
 )
 from backend.db import (
     init_db, user_exists, create_user, get_user_id,
@@ -111,21 +113,36 @@ def user_heartbeat(username: str = Form(...)):
 # ============================================================
 
 def procesar_analisis_completo(original_text, uid, filename, mode="ortografia"):
-    # 1. Corrección y Feedback
-    corrected_text = model.correct_full_text(original_text, mode=mode)
+    # 1. Corrección y Extracción unificada
+    corrected_text, errores_extraidos = corregir_y_extraer_errores(original_text, mode=mode)
+    
+    # ======== INICIO DE GUARDADO EN .TXT ========
+    try:
+        # Obtenemos la ruta absoluta a la carpeta 'data' (subiendo un nivel desde 'backend')
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        data_dir = os.path.join(base_dir, "data")
+        os.makedirs(data_dir, exist_ok=True)  # Aseguramos que la carpeta exista
+        
+        log_path = os.path.join(data_dir, "debug_errores.txt")
+        
+        # Escribimos en modo "a" (append) para no borrar lo anterior
+        with open(log_path, "a", encoding="utf-8") as f:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            f.write(f"\n[{timestamp}] Documento: {filename} | Usuario ID: {uid}\n")
+            f.write(json.dumps(errores_extraidos, indent=2, ensure_ascii=False) + "\n")
+            f.write("-" * 60 + "\n")
+    except Exception as e:
+        print(f"Error al guardar el log de errores: {e}")
+    # ======== FIN DE GUARDADO EN .TXT ========
+
+    # 2. Generar explicación
     feedback = model.generate_feedback(original_text, corrected_text)
 
-    # 2. Detección de Tú Impersonal
+    # 3. Detección de Tú Impersonal
     errores_posibles, _ = posible_tu_impersonal(original_text)
     num_tu = len(errores_posibles) if isinstance(errores_posibles, list) else 0
 
-    # 3. Extracción de listas de errores para métricas precisas
-    errores_extraidos = extraer_listas_errores(original_text, corrected_text)
-    
-    # Debug en consola
-    print("\nDEBUG - ERRORES:", json.dumps(errores_extraidos, indent=2, ensure_ascii=False))
-
-    # 4. Cálculo de métricas
+    # 4. Cálculo de métricas generales
     sentences = split_into_sentences(original_text)
     total_frases = len(sentences)
     cambios_modelo = word_levenshtein_count(original_text, corrected_text)
@@ -156,7 +173,8 @@ def procesar_analisis_completo(original_text, uid, filename, mode="ortografia"):
         "corrected": corrected_text,
         "feedback": feedback,
         "errores_posibles": errores_posibles,
-        "metricas": metrics_to_save
+        "metricas": metrics_to_save,
+        "listas_errores": errores_extraidos
     }
 
 @app.post("/process/")
