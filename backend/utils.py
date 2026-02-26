@@ -177,7 +177,7 @@ def extraer_listas_errores(texto_original: str, texto_corregido: str) -> dict:
                         
     return listas_errores
 
-def corregir_y_extraer_errores(texto: str):
+def corregir_y_extraer_errores(texto: str, mode: str = "ortografia"):
     """
     Función principal para usar en cualquier parte de tu código.
     Dado un texto, lo corrige usando el LLM y devuelve el texto corregido 
@@ -186,8 +186,8 @@ def corregir_y_extraer_errores(texto: str):
     if not texto or not texto.strip():
         return "", {"B_V": [], "G_J": [], "Y_LL": [], "H": [], "TILDES": [], "OTROS": []}
 
-    # 1. Usar el modelo para generar el texto corregido
-    texto_corregido = model.correct_full_text(texto)
+    # 1. Usar el modelo para generar el texto corregido pasándole el 'mode'
+    texto_corregido = model.correct_full_text(texto, mode=mode)
     
     # 2. Analizar las diferencias para sacar las listas
     listas_errores = extraer_listas_errores(texto, texto_corregido)

@@ -115,26 +115,6 @@ def user_heartbeat(username: str = Form(...)):
 def procesar_analisis_completo(original_text, uid, filename, mode="ortografia"):
     # 1. Corrección y Extracción unificada
     corrected_text, errores_extraidos = corregir_y_extraer_errores(original_text, mode=mode)
-    
-    # ======== INICIO DE GUARDADO EN .TXT ========
-    try:
-        # Obtenemos la ruta absoluta a la carpeta 'data' (subiendo un nivel desde 'backend')
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        data_dir = os.path.join(base_dir, "data")
-        os.makedirs(data_dir, exist_ok=True)  # Aseguramos que la carpeta exista
-        
-        log_path = os.path.join(data_dir, "debug_errores.txt")
-        
-        # Escribimos en modo "a" (append) para no borrar lo anterior
-        with open(log_path, "a", encoding="utf-8") as f:
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            f.write(f"\n[{timestamp}] Documento: {filename} | Usuario ID: {uid}\n")
-            f.write(json.dumps(errores_extraidos, indent=2, ensure_ascii=False) + "\n")
-            f.write("-" * 60 + "\n")
-    except Exception as e:
-        print(f"Error al guardar el log de errores: {e}")
-    # ======== FIN DE GUARDADO EN .TXT ========
-
     # 2. Generar explicación
     feedback = model.generate_feedback(original_text, corrected_text)
 
