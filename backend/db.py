@@ -391,3 +391,45 @@ def registrar_acierto_palabra(palabra_id: int):
             SET aciertos_restantes = aciertos_restantes - 1 
             WHERE id=? AND aciertos_restantes > 0
         """, (palabra_id,))
+
+
+def get_user_error_progress(username: str, limit: int = 15):
+    """
+    Devuelve los últimos `limit` textos para cada categoría donde hubo palabras susceptibles,
+    calculando el % de error.
+    """
+    username = sanitize_username(username)
+    categorias = ["b_v", "g_j", "y_ll", "h", "c_z", "tildes"]
+    resultado = []
+    
+    with db() as con:
+        for cat in categorias:
+            # Query que junta la métrica de error y la de susceptibles del mismo documento
+            rows = con.execute(f"""
+                SELECT d.id AS doc_id, d.uploaded_at,
+                       m_err.metric_value AS errores,
+                       m_sus.metric_value AS susceptibles
+                FROM documents d
+                JOIN users u ON u.id = d.user_id
+                JOIN metrics m_err ON m_err.document_id = d.id AND m_err.metric_name = 'errores_{cat}'
+                JOIN metrics m_sus ON m_sus.document_id = d.id AND m_sus.metric_name = 'susceptibles_{cat}'
+                WHERE u.username = ? AND m_sus.metric_value > 0
+                ORDER BY d.id DESC
+                LIMIT ?
+            """, (username, limit)).fetchall()
+            
+            # Revertimos para que queden en orden cronológico ascendente (el más viejo primero para la gráfica)
+            rows = list(reversed(rows))
+            
+            for index, r in enumerate(rows):
+                err = float(r["errores"])
+                sus = float(r["susceptibles"])
+                porcentaje = (err / sus) * 100 if sus > 0 else 0
+                resultado.append({
+                    "categoria": cat.upper(),
+                    "doc_index": index + 1,  # Eje X secuencial (1, 2, 3... 15)
+                    "fecha": r["uploaded_at"],
+                    "porcentaje_error": round(porcentaje, 2),
+                    "doc_id": r["doc_id"]
+                })
+    return resultado

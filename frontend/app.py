@@ -594,7 +594,42 @@ def ver_mis_metricas(username, backend_url):
                 st.warning("No se pudo obtener la actividad semanal.")
         except Exception as e:
             st.warning(f"Error al obtener la actividad: {e}")
+    st.markdown("<h2 class='h-section'>📈 Evolución de errores ortográficos</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size: 0.95rem; color: #555;'>Muestra el % de error en los últimos 15 textos para cada categoría (solo se cuentan los textos que contenían palabras con riesgo de fallar).</p>", unsafe_allow_html=True)
 
+    try:
+        resp_prog = requests.get(f"{backend_url}/users/{username}/progress", timeout=10)
+        if resp_prog.ok:
+            prog_data = resp_prog.json().get("progress", [])
+            if prog_data:
+                import pandas as pd
+                df_prog = pd.DataFrame(prog_data)
+                
+                # Gráfico múltiple con Altair
+                chart_prog = (
+                    alt.Chart(df_prog)
+                    .mark_line(point=True, strokeWidth=3, size=80)
+                    .encode(
+                        x=alt.X("doc_index:O", title="Textos evaluados cronológicamente (1 = más antiguo)"),
+                        y=alt.Y("porcentaje_error:Q", title="% de Error cometido", scale=alt.Scale(domain=[0, 100])),
+                        color=alt.Color("categoria:N", title="Categoría"),
+                        tooltip=[
+                            alt.Tooltip("categoria:N", title="Regla"),
+                            alt.Tooltip("porcentaje_error:Q", title="% de Error", format=".1f"),
+                            alt.Tooltip("fecha:T", title="Fecha")
+                        ]
+                    )
+                    .properties(height=350, width="container")
+                    .interactive()
+                )
+                
+                st.altair_chart(chart_prog, use_container_width=True)
+            else:
+                st.info("Aún no tienes suficientes datos procesados para ver la evolución de las reglas ortográficas.")
+        else:
+            st.warning("No se pudo obtener el progreso histórico.")
+    except Exception as e:
+        st.warning(f"Error cargando la gráfica de progreso: {e}")
     st.markdown("<h2 class='h-section'>Mis documentos</h2>", unsafe_allow_html=True)
     if docs:
         for d in docs:
@@ -672,7 +707,189 @@ def render_status(backend_url):
         st.session_state["status_message"]  = estado.get("message", "")
 
     st.stop()
+def mostrar_repaso():
+    st.markdown("""
+    <style>
+    .flashcard-container {
+        perspective: 1000px;
+        margin: 2rem auto;
+    }
+    .flashcard {
+        background: #ffffff;
+        border-radius: 20px;
+        padding: 2.5rem;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+        border-top: 8px solid #3b82f6;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    .flashcard:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
+    }
+    .flashcard::before {
+        content: "";
+        position: absolute;
+        top: -50px;
+        right: -50px;
+        width: 150px;
+        height: 150px;
+        background: rgba(59, 130, 246, 0.05);
+        border-radius: 50%;
+    }
+    .flashcard-title {
+        color: #1e3a8a;
+        font-size: 2.2rem !important;
+        font-weight: 800 !important;
+        margin-bottom: 1.5rem !important;
+        text-align: center;
+        letter-spacing: -0.5px;
+    }
+    .flashcard-content {
+        font-size: 1.15rem;
+        color: #374151;
+        line-height: 1.7;
+    }
+    .flashcard-content ul {
+        margin-top: 0.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .flashcard-content li {
+        margin-bottom: 0.8rem;
+    }
+    .flashcard-examples {
+        background: linear-gradient(135deg, #eff6ff, #dbeafe);
+        padding: 1.2rem;
+        border-radius: 12px;
+        color: #1e40af;
+        font-weight: 500;
+        margin-top: 1.5rem;
+        border-left: 4px solid #60a5fa;
+    }
+    .example-word {
+        font-weight: 800;
+        color: #2563eb;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
+    # Datos de las tarjetas
+    tarjetas = [
+        {
+            "titulo": "Uso de la B y la V",
+            "emoji": "🅱️ / ✌️",
+            "reglas": [
+                "Se escriben con <b>B</b> los verbos terminados en <i>-bir</i> y <i>-buir</i> (excepto hervir, servir y vivir).",
+                "Se escriben con <b>B</b> las terminaciones del pretérito imperfecto: <i>-aba, -abas...</i>",
+                "Se escriben con <b>V</b> los adjetivos terminados en <i>-avo, -ave, -evo, -eve, -ivo, -iva</i>.",
+                "Se escriben con <b>V</b> las palabras que empiezan por <i>ad-, sub-, ob-</i> seguidas de este sonido."
+            ],
+            "ejemplos": "Escribir, contribuir, cantaba, <span class='example-word'>suave</span>, <span class='example-word'>obvio</span>, <span class='example-word'>advertir</span>."
+        },
+        {
+            "titulo": "Uso de la G y la J",
+            "emoji": "🦒 / 🐆",
+            "reglas": [
+                "Se escriben con <b>G</b> los verbos terminados en <i>-ger, -gir</i> (excepto tejer y crujir).",
+                "Se escriben con <b>G</b> las palabras que empiezan por <i>geo-</i> (tierra) o terminan en <i>-logía</i>.",
+                "Se escriben con <b>J</b> las palabras que terminan en <i>-aje, -eje</i>.",
+                "Se escriben con <b>J</b> las formas de los verbos que no llevan ni G ni J en su infinitivo (ej: decir -> dije)."
+            ],
+            "ejemplos": "Recoger, <span class='example-word'>geografía</span>, biología, <span class='example-word'>garaje</span>, <span class='example-word'>conduje</span>."
+        },
+        {
+            "titulo": "Uso de Y y LL",
+            "emoji": "🪀 / 🗝️",
+            "reglas": [
+                "Se escriben con <b>LL</b> las palabras terminadas en <i>-illo, -illa</i>.",
+                "Se escriben con <b>LL</b> los verbos terminados en <i>-llir, -ullar</i>.",
+                "Se escriben con <b>Y</b> los plurales de las palabras que terminan en <i>-y</i> (ley -> leyes).",
+                "Se escribe <b>Y</b> en las formas verbales que no tienen LL ni Y en el infinitivo (caer -> cayó)."
+            ],
+            "ejemplos": "Pasillo, <span class='example-word'>zambullir</span>, reyes, <span class='example-word'>leyendo</span>, <span class='example-word'>oyó</span>."
+        },
+        {
+            "titulo": "Uso de C, Z y S",
+            "emoji": "🦊 / 🐍",
+            "reglas": [
+                "Se usa <b>Z</b> delante de a, o, u (zapato) y <b>C</b> delante de e, i (cielo).",
+                "Se usa <b>C</b> en las terminaciones <i>-ción</i> cuando la palabra deriva de otra que termina en <i>-to, -tor, -do, -dor</i>.",
+                "Se usa <b>S</b> en las terminaciones <i>-sión</i> cuando deriva de palabras terminadas en <i>-so, -sor, -sivo, -sible</i>.",
+                "Los plurales de las palabras que terminan en Z, se escriben con <b>C</b> (luz -> luces)."
+            ],
+            "ejemplos": "<span class='example-word'>Zorro</span>, <span class='example-word'>canción</span> (cantor), <span class='example-word'>ilusión</span> (iluso), <span class='example-word'>peces</span>."
+        },
+        {
+            "titulo": "Uso de la H",
+            "emoji": "👻",
+            "reglas": [
+                "Se escriben con <b>H</b> las palabras que empiezan por los diptongos <i>hie-, hue-, hui-, hia-</i>.",
+                "Se escriben con <b>H</b> los prefijos griegos como <i>hidro-</i> (agua), <i>hiper-</i> (exceso), <i>hipo-</i> (caballo/debajo).",
+                "Todas las formas de los verbos haber, hacer, hallar, hablar y habitar llevan <b>H</b>."
+            ],
+            "ejemplos": "<span class='example-word'>Hielo</span>, <span class='example-word'>hueso</span>, hidrofobia, <span class='example-word'>hicimos</span>, <span class='example-word'>hubo</span>."
+        },
+        {
+            "titulo": "Acentuación (Tildes)",
+            "emoji": "🎯",
+            "reglas": [
+                "<b>Agudas:</b> Llevan tilde si terminan en vocal, <i>-n</i> o <i>-s</i>. (La fuerza va en la última sílaba).",
+                "<b>Llanas:</b> Llevan tilde si terminan en consonante que NO sea <i>-n</i> ni <i>-s</i>. (Fuerza en la penúltima).",
+                "<b>Esdrújulas y Sobresdrújulas:</b> ¡Llevan tilde siempre! (Fuerza en la antepenúltima o anterior)."
+            ],
+            "ejemplos": "<span class='example-word'>Camión</span> (aguda), <span class='example-word'>árbol</span> (llana), <span class='example-word'>rápido</span> (esdrújula), <span class='example-word'>examen</span> (llana sin tilde)."
+        }
+    ]
+
+    # Inicializar el índice de la tarjeta actual en session_state
+    if "repaso_index" not in st.session_state:
+        st.session_state.repaso_index = 0
+
+    st.markdown("<h1 style='text-align: center; margin-bottom: 0.5rem;'>📖 Tarjetas de Repaso</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; font-size: 1.1rem; color: #6b7280; margin-bottom: 2rem;'>Desliza para recordar las reglas ortográficas más importantes.</p>", unsafe_allow_html=True)
+
+    # Controles superiores (progreso)
+    total_tarjetas = len(tarjetas)
+    idx = st.session_state.repaso_index
+    tarjeta = tarjetas[idx]
+
+    st.progress((idx + 1) / total_tarjetas)
+    st.caption(f"<div style='text-align: center;'>Tarjeta {idx + 1} de {total_tarjetas}</div>", unsafe_allow_html=True)
+
+    # Renderizar la tarjeta
+    html_reglas = "".join([f"<li>{r}</li>" for r in tarjeta["reglas"]])
+    
+    st.markdown(f"""
+    <div class="flashcard-container">
+        <div class="flashcard">
+            <h2 class="flashcard-title">{tarjeta['emoji']} {tarjeta['titulo']}</h2>
+            <div class="flashcard-content">
+                <ul>
+                    {html_reglas}
+                </ul>
+            </div>
+            <div class="flashcard-examples">
+                💡 <b>Ejemplos:</b><br>{tarjeta['ejemplos']}
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<div style='margin-top: 1.5rem;'></div>", unsafe_allow_html=True)
+
+    # Botones de navegación del carrusel
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col1:
+        if st.button("⬅️ Anterior", use_container_width=True, disabled=(idx == 0)):
+            st.session_state.repaso_index -= 1
+            st.rerun()
+            
+    with col3:
+        if st.button("Siguiente ➡️", use_container_width=True, disabled=(idx == total_tarjetas - 1)):
+            st.session_state.repaso_index += 1
+            st.rerun()
 # =========================
 # Main app
 # =========================
@@ -686,7 +903,10 @@ def main_app():
         
         # --- NUEVO: Menú de navegación ---
         st.sidebar.markdown("---")
-        modo_app = st.sidebar.radio("Navegación", ["📝 Corrector de Textos", "🏋️ Gimnasio Ortográfico"])
+        modo_app = st.sidebar.selectbox(
+            "📍 ¿A dónde quieres ir?", 
+            ["📝 Corrector de Textos", "🏋️ Gimnasio Ortográfico", "📖 Repaso Teórico"]
+        )
         st.sidebar.markdown("---")
         # ---------------------------------
 
@@ -721,7 +941,10 @@ def main_app():
     if st.session_state.get("logged_in", False):
         if modo_app == "🏋️ Gimnasio Ortográfico":
             mostrar_gimnasio(backend_url, st.session_state["usuario"])
-            return # Detenemos la ejecución aquí para que no dibuje el corrector
+            return 
+        elif modo_app == "📖 Repaso Teórico":
+            mostrar_repaso()
+            return # Detenemos la ejecución aquí
     
     st.title("📝 PALABRIA - Corrector de Textos")
 

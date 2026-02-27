@@ -6,14 +6,15 @@ import time
 import json
 import os
 from datetime import datetime
-
+from backend.db import get_user_error_progress
 import backend.model as model
 from backend.metrics import compute_metrics, word_levenshtein_count
 from backend.utils import (
     extract_text_from_pdf, 
     split_into_sentences, 
     posible_tu_impersonal, 
-    corregir_y_extraer_errores
+    corregir_y_extraer_errores,
+    contar_palabras_susceptibles
 )
 
 from backend.db import (
@@ -118,6 +119,7 @@ def user_heartbeat(username: str = Form(...)):
 def procesar_analisis_completo(original_text, uid, filename, mode="ortografia"):
     # 1. Corrección y Extracción unificada
     corrected_text, errores_extraidos = corregir_y_extraer_errores(original_text, mode=mode)
+    susceptibles = contar_palabras_susceptibles(corrected_text)
     # 2. Generar explicación
     feedback = model.generate_feedback(original_text, corrected_text)
 
@@ -139,12 +141,25 @@ def procesar_analisis_completo(original_text, uid, filename, mode="ortografia"):
     metrics_to_save = {
         "total_frases": total_frases,
         "frases_con_tu_impersonal": num_tu,
+        
         "errores_b_v": len(errores_extraidos.get("B_V", [])),
+        "susceptibles_b_v": susceptibles["B_V"],
+        
         "errores_g_j": len(errores_extraidos.get("G_J", [])),
+        "susceptibles_g_j": susceptibles["G_J"],
+        
         "errores_y_ll": len(errores_extraidos.get("Y_LL", [])),
+        "susceptibles_y_ll": susceptibles["Y_LL"],
+        
         "errores_h": len(errores_extraidos.get("H", [])),
-        "errores_tildes": len(errores_extraidos.get("TILDES", [])),
+        "susceptibles_h": susceptibles["H"],
+        
         "errores_c_z": len(errores_extraidos.get("C_Z", [])),
+        "susceptibles_c_z": susceptibles["C_Z"],
+        
+        "errores_tildes": len(errores_extraidos.get("TILDES", [])),
+        "susceptibles_tildes": susceptibles["TILDES"],
+        
         "cambios_propuestos_modelo": cambios_modelo,
         "cambios_realizados_usuario": cambios_modelo
     }
@@ -231,3 +246,8 @@ def registrar_acierto(palabra_id: int):
         return {"ok": True, "mensaje": "Acierto registrado"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+    
+@app.get("/users/{username}/progress")
+def user_error_progress(username: str):
+    # Trae un histórico de tamaño 15 (ventana deslizante)
+    return {"username": username, "progress": get_user_error_progress(username, limit=15)}

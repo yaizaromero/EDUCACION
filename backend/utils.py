@@ -193,3 +193,22 @@ def corregir_y_extraer_errores(texto: str, mode: str = "ortografia"):
     listas_errores = extraer_listas_errores(texto, texto_corregido)
     
     return texto_corregido, listas_errores
+
+def contar_palabras_susceptibles(texto_corregido: str) -> dict:
+    """Cuenta cuántas palabras son susceptibles de fallar en cada categoría (denominador)."""
+    # Extraemos palabras ignorando signos de puntuación
+    palabras = re.findall(r'\b[a-záéíóúüñA-ZÁÉÍÓÚÜÑ]+\b', texto_corregido.lower())
+    
+    counts = {"B_V": 0, "G_J": 0, "Y_LL": 0, "H": 0, "C_Z": 0, "TILDES": 0}
+    
+    for w in palabras:
+        if 'b' in w or 'v' in w: counts["B_V"] += 1
+        if 'g' in w or 'j' in w: counts["G_J"] += 1
+        if 'y' in w or 'll' in w: counts["Y_LL"] += 1
+        if 'h' in w: counts["H"] += 1
+        if 'c' in w or 'z' in w or 's' in w: counts["C_Z"] += 1
+        # Palabras con vocales acentuadas
+        if any(c in w for c in 'áéíóú'): counts["TILDES"] += 1
+        
+    return counts
+
