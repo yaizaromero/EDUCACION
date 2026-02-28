@@ -14,7 +14,8 @@ from backend.utils import (
     split_into_sentences, 
     posible_tu_impersonal, 
     corregir_y_extraer_errores,
-    contar_palabras_susceptibles
+    contar_palabras_susceptibles,
+   
 )
 
 from backend.db import (
@@ -24,7 +25,12 @@ from backend.db import (
     sanitize_username, delete_document, record_login_ts,
     close_open_session, get_user_weekly_activity,
     agregar_palabras_bolsa, obtener_palabras_repaso, 
-    registrar_acierto_palabra
+    registrar_acierto_palabra,
+    actualizar_niveles_usuario,
+    get_niveles_usuario,
+    check_and_award_badges, 
+    get_user_badges,
+    update_user_streak, get_user_profile, update_user_avatar
 )
 
 app = FastAPI(title="PALABRIA Backend")
@@ -61,6 +67,7 @@ def user_create(username: str = Form(...)):
         uid = create_user(username)
         record_usage(uid, "login", None)
         record_login_ts(uid, time.time())
+        update_user_streak(uid)
         return {"ok": True, "user_id": uid, "username": username}
     except HTTPException:
         raise
@@ -76,6 +83,7 @@ def user_login(username: str = Form(...)):
             raise HTTPException(status_code=404, detail="La cuenta no existe. Crea una nueva.")
         record_usage(uid, "login", None)
         record_login_ts(uid, time.time())
+        update_user_streak(uid)
         return {"ok": True, "user_id": uid, "username": username}
     except HTTPException:
         raise
@@ -159,13 +167,20 @@ def procesar_analisis_completo(original_text, uid, filename, mode="ortografia"):
         
         "errores_tildes": len(errores_extraidos.get("TILDES", [])),
         "susceptibles_tildes": susceptibles["TILDES"],
-        
+
+        "errores_otros": len(errores_extraidos.get("OTROS", [])),
+        "susceptibles_otros": susceptibles["OTROS"],
+
         "cambios_propuestos_modelo": cambios_modelo,
         "cambios_realizados_usuario": cambios_modelo
     }
 
     for name, value in metrics_to_save.items():
         insert_metric(doc_id, name, float(value))
+
+    actualizar_niveles_usuario(uid, limit=15)
+
+    check_and_award_badges(uid)
 
     return {
         "doc_id": doc_id,
@@ -251,3 +266,34 @@ def registrar_acierto(palabra_id: int):
 def user_error_progress(username: str):
     # Trae un histórico de tamaño 15 (ventana deslizante)
     return {"username": username, "progress": get_user_error_progress(username, limit=15)}
+
+@app.get("/users/{username}/levels")
+def user_levels_endpoint(username: str):
+    try:
+        username = sanitize_username(username)
+        niveles = get_niveles_usuario(username)
+        if not niveles:
+            return {"ok": True, "niveles": {}}
+        return {"ok": True, "niveles": niveles}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@app.get("/users/{username}/badges")
+def user_badges_endpoint(username: str):
+    try:
+        username = sanitize_username(username)
+        badges = get_user_badges(username)
+        return {"ok": True, "badges": badges}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@app.get("/users/{username}/profile")
+def user_profile_endpoint(username: str):
+    username = sanitize_username(username)
+    return {"ok": True, "profile": get_user_profile(username)}
+
+@app.post("/users/{username}/avatar")
+def user_avatar_endpoint(username: str, avatar: str = Form(...)):
+    username = sanitize_username(username)
+    update_user_avatar(username, avatar)
+    return {"ok": True}
