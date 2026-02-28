@@ -1484,13 +1484,85 @@ def main_app():
 
         st.markdown("<h2 class='h-section'>⚙️ Modo usado</h2>", unsafe_allow_html=True)
         st.info(mode_used or "(sin modo)")
-        
-        # ... (aquí sigue todo el código que ya tenías de las métricas del texto actual, 
-        # el texto original, la salida del modelo, el feedback y el botón de descargar PDF) ...
-        
+
+        if st.session_state.get("__edited_for_doc") != st.session_state.get("last_doc_id"):
+            st.session_state["edited_text_area"] = corrected_text
+            st.session_state["__edited_for_doc"] = st.session_state.get("last_doc_id")
+
+        if "edited_text_area" not in st.session_state:
+            st.session_state["edited_text_area"] = corrected_text
+
+        edited_text_current = st.session_state.get("edited_text_area", corrected_text)
+        cambios_usuario_total = word_levenshtein_count(original_joined or "", edited_text_current or "")
+
+        if metricas:
+            st.markdown("<h2 class='h-section'>📊 Métricas del texto actual</h2>", unsafe_allow_html=True)
+
+            col1, col2 = st.columns(2, gap="medium")
+            col1.metric("Total de frases", metricas.get("total_frases", 0))
+            col2.metric("Posibles frases con 'tú' impersonal", metricas.get("frases_con_tu_impersonal", 0))
+
+            col_o1, col_o2, col_o3 = st.columns(3, gap="medium")
+            col_o1.metric("Errores B/V", metricas.get("errores_b_v", 0))
+            col_o2.metric("Errores G/J", metricas.get("errores_g_j", 0))
+            col_o3.metric("Errores Y/LL", metricas.get("errores_y_ll", 0))
+
+            col_o4, col_o5, _ = st.columns(3, gap="medium")
+            col_o4.metric("Errores de H", metricas.get("errores_h", 0))
+            col_o5.metric("Errores de Tildes", metricas.get("errores_tildes", 0))
+
+            col3, col4 = st.columns(2, gap="medium")
+            col3.metric("Cambios propuestos (modelo)", metricas.get("cambios_propuestos_modelo", 0))
+            col4.metric("Cambios realizados (usuario)", cambios_usuario_total)
+
+        st.markdown("<h2 class='h-section'>📥 Texto original</h2>", unsafe_allow_html=True)
+        original_text_display = anal.get("original_text", "") or ""
+        st.markdown(
+            f"""
+            <textarea class="readonly-box" readonly style="white-space: pre-wrap; line-height: 1.5;">{original_text_display.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")}</textarea>
+            """,
+            unsafe_allow_html=True
+        )
+
+        st.markdown("<h2 class='h-section'>💻 Salida del modelo</h2>", unsafe_allow_html=True)
+        st.markdown(
+            f"""
+            <textarea class="readonly-box" readonly>{(corrected_text or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")}</textarea>
+            """,
+            unsafe_allow_html=True
+        )
+
+        st.markdown("<h2 class='h-section'>📚 Feedback</h2>", unsafe_allow_html=True)
+        feedback_text = anal.get("feedback", "") or ""
+        st.markdown(
+            f"""<textarea class="readonly-box" readonly style="white-space: pre-wrap; line-height: 1.5;">{feedback_text.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")}</textarea>""",
+            unsafe_allow_html=True
+        )
+
+        st.markdown("<h2 class='h-section'>📝 Revisa y edita el texto corregido</h2>", unsafe_allow_html=True)
+
+        def _save_user_changes_callback():
+            edited_now = st.session_state.get("edited_text_area", "")
+            changes_now = word_levenshtein_count(original_joined or "", edited_now or "")
+            last_saved = st.session_state.get(f"__last_saved_changes_{st.session_state.get('last_doc_id')}")
+            if last_saved is None or int(last_saved) != int(changes_now):
+                _post_user_changes(backend_url, st.session_state["last_doc_id"], int(changes_now))
+
+        edited_text = st.text_area(
+            "Tu versión final",
+            key="edited_text_area",
+            height=300,
+            on_change=_save_user_changes_callback,
+        )
+
+        if st.button("📅 Descargar PDF corregido"):
+            base = (st.session_state.get("last_pdf_name") or "Texto_Corregido").rsplit(".", 1)[0]
+            pdf_filename = f"{base}.pdf"
+            pdf_filename = save_text_as_pdf(edited_text, filename=pdf_filename)
+            with open(pdf_filename, "rb") as file:
+                st.download_button("Descargar el PDF", file, file_name=pdf_filename, mime="application/pdf")
     else:
         st.info("No hay análisis activo. Sube un PDF o escribe texto y pulsa “Analizar texto”.")
-    
 
 def obtener_ejercicios_backend(backend_url, username, categoria):
     """Obtiene palabras de la bolsa del usuario y las formatea como tarjetas."""
