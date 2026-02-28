@@ -213,17 +213,24 @@ def contar_palabras_susceptibles(texto_corregido: str) -> dict:
     return counts
 
 def contar_palabras_susceptibles(texto_corregido: str) -> dict:
+    import re
     palabras = re.findall(r'\b[a-záéíóúüñA-ZÁÉÍÓÚÜÑ]+\b', texto_corregido.lower())
     
-    # NUEVO: OTROS equivale al total de palabras del texto
     counts = {"B_V": 0, "G_J": 0, "Y_LL": 0, "H": 0, "C_Z": 0, "TILDES": 0, "OTROS": len(palabras)}
     
     for w in palabras:
         if 'b' in w or 'v' in w: counts["B_V"] += 1
-        if 'g' in w or 'j' in w: counts["G_J"] += 1
+        
+        # Mantenemos la mejora de G/J para que no cuente "gato" o "gusano"
+        if 'j' in w or 'ge' in w or 'gi' in w: counts["G_J"] += 1
+        
         if 'y' in w or 'll' in w: counts["Y_LL"] += 1
         if 'h' in w: counts["H"] += 1
-        if 'c' in w or 'z' in w or 's' in w: counts["C_Z"] += 1
+        
+        # REGLA ACTUALIZADA: Solo miramos la C y la Z (Ignoramos la S)
+        if 'c' in w or 'z' in w: 
+            counts["C_Z"] += 1
+            
         if any(c in w for c in 'áéíóú'): counts["TILDES"] += 1
         
     return counts

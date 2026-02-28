@@ -9,7 +9,18 @@ from rapidfuzz.distance import Levenshtein as L
 from streamlit.components.v1 import html as st_html
 import altair as alt
 import random
+import base64
+import os
 
+def get_base64_image(image_path):
+    """Convierte una imagen local a un formato que el HTML puede leer directamente."""
+    try:
+        with open(image_path, "rb") as img_file:
+            encoded_string = base64.b64encode(img_file.read()).decode()
+        return f"data:image/png;base64,{encoded_string}"
+    except Exception as e:
+        return "👑"  # Si no encuentra la imagen, devuelve un emoji de respaldo
+    
 EJERCICIOS_BASE = {
     "B_V": {
         "facil": [
@@ -543,6 +554,7 @@ def mostrar_perfil(username, backend_url):
             nuevo_avatar = st.selectbox("Elige tu nuevo avatar", avatares, index=idx)
             if st.button("Guardar Avatar", use_container_width=True):
                 requests.post(f"{backend_url}/users/{username}/avatar", data={"avatar": nuevo_avatar})
+                st.session_state["mi_avatar"] = nuevo_avatar  # <-- ¡AÑADE ESTA LÍNEA!
                 st.rerun()
 
     st.markdown("<hr style='margin: 2rem 0;'/>", unsafe_allow_html=True)
@@ -833,14 +845,36 @@ def mostrar_perfil(username, backend_url):
         }
         </style>
         """, unsafe_allow_html=True)
+        img_bv = get_base64_image("frontend/assets/BV.png")
+        img_gj = get_base64_image("frontend/assets/GJ.png")
+        img_cz = get_base64_image("frontend/assets/CZ.png")
+        img_yll = get_base64_image("frontend/assets/YLL.png")
+        img_tildes = get_base64_image("frontend/assets/tilde.png")
+        img_master = get_base64_image("frontend/assets/master.png")
+        img_be = get_base64_image("frontend/assets/buenaescritura.png")
+        img_h = get_base64_image("frontend/assets/H.png")
 
         todas_insignias = [
-            {"id": "dominio_b_v", "titulo": "Dominio B/V", "sub": "15 textos impecables", "emoji": "🅱️"},
-            {"id": "dominio_g_j", "titulo": "Dominio G/J", "sub": "15 textos impecables", "emoji": "🦒"},
-            {"id": "dominio_y_ll", "titulo": "Dominio Y/LL", "sub": "15 textos impecables", "emoji": "🗝️"},
-            {"id": "dominio_tildes", "titulo": "Francotirador", "sub": "Rey de las tildes", "emoji": "🎯"},
-            {"id": "dominio_h", "titulo": "Cazafantasmas", "sub": "Dominio de la H", "emoji": "👻"},
-            {"id": "dominio_otros", "titulo": "Pluma de Oro", "sub": "Buena Escritura general", "emoji": "✍️"},
+            {"id": "dominio_b_v", "titulo": "Dominio B/V", "sub": "15 textos impecables", 
+             "emoji": f"<img src='{img_bv}' style='width:100%; height:100%; object-fit:cover; border-radius:50%;'>"},
+             
+            {"id": "dominio_g_j", "titulo": "Dominio G/J", "sub": "15 textos impecables", 
+             "emoji": f"<img src='{img_gj}' style='width:100%; height:100%; object-fit:cover; border-radius:50%;'>"},
+             
+            {"id": "dominio_y_ll", "titulo": "Dominio Y/LL", "sub": "15 textos impecables", 
+             "emoji": f"<img src='{img_yll}' style='width:100%; height:100%; object-fit:cover; border-radius:50%;'>"},
+            
+            {"id": "dominio_c_z", "titulo": "Dominio C/Z/S", "sub": "15 textos impecables", 
+             "emoji": f"<img src='{img_cz}' style='width:100%; height:100%; object-fit:cover; border-radius:50%;'>"},
+
+            {"id": "dominio_tildes", "titulo": "Francotirador", "sub": "Rey de las tildes", 
+             "emoji": f"<img src='{img_tildes}' style='width:100%; height:100%; object-fit:cover; border-radius:50%;'>"},
+             
+            {"id": "dominio_h", "titulo": "Cazafantasmas", "sub": "Dominio de la H", 
+             "emoji": f"<img src='{img_h}' style='width:100%; height:100%; object-fit:cover; border-radius:50%;'>"},
+             
+            {"id": "dominio_otros", "titulo": "Pluma de Oro", "sub": "Buena Escritura general", 
+             "emoji": f"<img src='{img_be}' style='width:100%; height:100%; object-fit:cover; border-radius:50%;'>"}
         ]
 
         # Renderizar insignias básicas
@@ -856,11 +890,13 @@ def mostrar_perfil(username, backend_url):
         st.markdown(html_insignias, unsafe_allow_html=True)
         # Renderizar la de Master centrada abajo, más espectacular
         clase_master = "insignia-earned insignia-master" if "master_ortografia" in user_badges else "insignia-master"
+        
+        # Renderizamos el HTML
         st.markdown(f"""
         <div class='vitrina' style='margin-top: 0;'>
             <div class="insignia-box" style="width: 200px;">
                 <div class="insignia-circle {clase_master}">
-                    👑
+                    <img src='{img_master}' style='width:100%; height:100%; object-fit:cover; border-radius:50%;'>
                 </div>
                 <div class="insignia-title" style="font-size: 1.2rem; margin-top: 0.5rem;">Máster de la Ortografía</div>
                 <div class="insignia-subtitle" style="font-size: 0.85rem;">Consigue todas las demás</div>
@@ -1239,331 +1275,6 @@ def mostrar_vitrina(backend_url, username):
 
     except Exception as e:
         st.warning(f"Error cargando vitrina: {e}")
-# =========================
-# Main app
-# =========================
-def main_app():
-    st.sidebar.title("Opciones")
-    backend_url = os.getenv("BACKEND_URL", "http://localhost:8000")
-
-    if st.session_state.get("logged_in", False):
-        st.sidebar.success(f"Sesión iniciada como: {st.session_state['usuario']}")
-        inject_session_js(backend_url, st.session_state["usuario"])
-        
-        # --- NUEVO: Menú de navegación ---
-        st.sidebar.markdown("---")
-        modo_app = st.sidebar.selectbox(
-            "📍 ¿A dónde quieres ir?", 
-            ["📝 Corrector de Textos", "🏋️ Gimnasio Ortográfico", "📖 Repaso Teórico", "👤 Mi Perfil"]
-        )
-        st.sidebar.markdown("---")
-        # ---------------------------------
-
-        if st.sidebar.button("🔚 Cerrar sesión"):
-            try:
-                requests.post(f"{backend_url}/users/logout", data={"username": st.session_state['usuario']}, timeout=5)
-            except Exception:
-                pass
-            st.session_state["logged_in"] = False
-            st.session_state.pop("usuario", None)
-            _clear_status_cache()
-            _clear_metrics_cache()
-            clear_current_analysis()
-            st.rerun()
-
-        if st.sidebar.button("🧹 Limpiar análisis actual"):
-            clear_current_analysis()
-            st.rerun()
-
-    else:
-        st.sidebar.write("No has iniciado sesión.")
-        colL, colC = st.sidebar.columns(2)
-        if colL.button("🔓 Iniciar sesión"):
-            st.session_state["show_login"] = True
-            st.session_state["show_create_account"] = False
-            st.rerun()
-        if colC.button("📝 Crear cuenta"):
-            st.session_state["show_create_account"] = True
-            st.session_state["show_login"] = False
-            st.rerun()
-
-    if st.session_state.get("logged_in", False):
-        if modo_app == "🏋️ Gimnasio Ortográfico":
-            mostrar_gimnasio(backend_url, st.session_state["usuario"])
-            return 
-        elif modo_app == "📖 Repaso Teórico":
-            mostrar_repaso()
-            return
-        elif modo_app == "👤 Mi Perfil":
-            mostrar_perfil(st.session_state["usuario"], backend_url)
-            return
-    
-    st.title("📝 PALABRIA - Corrector de Textos")
-
-    if st.session_state.get("show_login", False):
-        login()
-        return
-    elif st.session_state.get("show_create_account", False):
-        create_account()
-        return
-
-    st.title("📝 PALABRIA - Corrector de Textos")
-
-    if "usuario" not in st.session_state:
-        st.warning("Por favor, selecciona una opción en la barra lateral.")
-        return
-
-    # Dispara carga del modelo una vez
-    if "load_disparado" not in st.session_state:
-        st.session_state["load_disparado"] = False
-    if not st.session_state["load_disparado"]:
-        try:
-            requests.post(f"{backend_url}/load/", timeout=5)
-        except Exception:
-            pass
-        st.session_state["load_disparado"] = True
-
-    st.markdown("<h2 class='h-section'>Estado del modelo</h2>", unsafe_allow_html=True)
-    render_status(backend_url)
-
-    if not st.session_state.get("modelo_listo", False):
-        return
-
-    st.markdown("<div class='spacer-1cm'></div>", unsafe_allow_html=True)
-    st.markdown("<h2 class='h-section'>📤 ANALIZA TU PDF O PEGA TU TEXTO</h2>", unsafe_allow_html=True)
-
-    # =========================
-    # NEW: selector de modo
-    # =========================
-    st.markdown("<h2 class='h-section'>Modo de corrección</h2>", unsafe_allow_html=True)
-    
-    def on_mode_change():
-        st.session_state["last_input_digest"] = None
-
-    mode_label = st.radio(
-        " ", 
-        list(MODE_OPTIONS.keys()), 
-        on_change=on_mode_change, 
-        horizontal=False, 
-        label_visibility="collapsed"
-    )
-
-    selected_mode = MODE_OPTIONS[mode_label]
-    st.caption(f"Modo seleccionado: **{selected_mode}**")
-
-    st.markdown("<h2 class='h-section'>Fuente de entrada</h2>", unsafe_allow_html=True)
-    modo_entrada = st.radio(" ", ["Subir PDF", "Escribir texto"], horizontal=True, label_visibility="collapsed")
-
-    texto_plano = None
-    uploaded_file = None
-    file_bytes = None
-    digest = None
-
-    if "last_input_digest" not in st.session_state:
-        st.session_state["last_input_digest"] = None
-    if "last_doc_id" not in st.session_state:
-        st.session_state["last_doc_id"] = None
-    if "last_analysis" not in st.session_state:
-        st.session_state["last_analysis"] = None
-
-    # =========================
-    # PDF flow
-    # =========================
-    if modo_entrada == "Subir PDF":
-        st.markdown("<h2 class='h-section'>Sube tu PDF</h2>", unsafe_allow_html=True)
-        uploaded_file = st.file_uploader("", type=["pdf"], label_visibility="collapsed")
-
-        if uploaded_file is not None:
-            file_bytes = uploaded_file.getvalue()
-            digest = hashlib.sha256(file_bytes + selected_mode.encode("utf-8")).hexdigest()
-
-        should_process = (uploaded_file is not None) and (digest != st.session_state.get("last_input_digest"))
-
-        if should_process:
-            with st.spinner("Analizando el PDF..."):
-                files = {'file': (uploaded_file.name, file_bytes, "application/pdf")}
-                data = {'username': st.session_state["usuario"], 'mode': selected_mode}
-                response = requests.post(f"{backend_url}/process/", files=files, data=data, timeout=180)
-
-            if response.status_code == 200:
-                data = response.json()
-                st.session_state["last_input_digest"] = digest
-                st.session_state["last_pdf_name"] = uploaded_file.name
-                st.session_state["last_doc_id"] = data.get("doc_id")
-
-                corrected = data.get("corrected", "")
-                if not isinstance(corrected, str):
-                    corrected = str(corrected)
-
-                st.session_state["last_analysis"] = {
-                    "original_text": data.get("original_text", ""),
-                    "metricas": data.get("metricas", {}),
-                    "corrected_text": corrected,
-                    "feedback": data.get("feedback", ""),
-                    "mode_used": data.get("mode_used", selected_mode),
-                }
-                st.session_state["edited_text_area"] = corrected
-                st.session_state["__edited_for_doc"] = st.session_state["last_doc_id"]
-            else:
-                st.error(f"❌ Error al procesar el PDF (código {response.status_code})")
-                try:
-                    st.code(response.text, language="json")
-                except Exception:
-                    st.write(response.text)
-                st.stop()
-
-    # =========================
-    # Text flow
-    # =========================
-    else:
-        st.markdown("<h2 class='h-section'>Escribir texto</h2>", unsafe_allow_html=True)
-        texto_plano = st.text_area("Pega aquí tu texto", height=200, key="__input_texto_plano")
-
-        default_name = st.session_state.get("__input_filename", "mi_texto.txt")
-        nombre_doc = st.text_input("Nombre del documento", value=default_name, key="__input_filename")
-
-        nombre_doc_norm = (nombre_doc or "mi_texto.txt").strip()
-        if "." not in nombre_doc_norm:
-            nombre_doc_norm += ".txt"
-
-        col_a, col_b = st.columns([1, 3])
-        if col_a.button("Analizar texto"):
-            if not texto_plano or not texto_plano.strip():
-                st.warning("Escribe algún texto antes de analizar.")
-            else:
-                st.session_state.pop("edited_text_area", None)
-                st.session_state["last_analysis"] = None
-                digest = hashlib.sha256(((texto_plano or "") + "|" + selected_mode).encode("utf-8")).hexdigest()
-                if digest != st.session_state.get("last_input_digest"):
-                    with st.spinner("Analizando el texto..."):
-                        data = {
-                            'username': st.session_state["usuario"],
-                            'text': texto_plano,
-                            'filename': nombre_doc_norm,
-                            'mode': selected_mode,
-                        }
-                        response = requests.post(f"{backend_url}/process_text/", data=data, timeout=180)
-
-                    if response.status_code == 200:
-                        resp = response.json()
-                        st.session_state["last_input_digest"] = digest
-                        st.session_state["last_pdf_name"] = nombre_doc_norm
-                        st.session_state["last_doc_id"] = resp.get("doc_id")
-
-                        corrected = resp.get("corrected", "")
-                        if not isinstance(corrected, str):
-                            corrected = str(corrected)
-
-                        st.session_state["last_analysis"] = {
-                            "original_text": resp.get("original_text", ""),
-                            "metricas": resp.get("metricas", {}),
-                            "corrected_text": corrected,
-                            "feedback": resp.get("feedback", ""),
-                            "mode_used": resp.get("mode_used", selected_mode),
-                        }
-                        st.session_state["edited_text_area"] = corrected
-                        st.session_state["__edited_for_doc"] = st.session_state["last_doc_id"]
-                    else:
-                        st.error(f"❌ Error al procesar el texto (código {response.status_code})")
-                        try:
-                            st.code(response.text, language="json")
-                        except Exception:
-                            st.write(response.text)
-                        st.stop()
-
-    st.markdown("<div class='spacer-tabs'></div>", unsafe_allow_html=True)
-    st.markdown("<hr>", unsafe_allow_html=True)
-
-    # 👇 Fíjate que aquí ya no hay 'with tabs[0]:', va directo el 'if'
-    if has_current_analysis():
-        anal = st.session_state["last_analysis"]
-        metricas = anal.get("metricas", {})
-        original_joined = anal.get("original_text", "")
-        corrected_text = anal.get("corrected_text", "") or ""
-        mode_used = anal.get("mode_used", "")
-
-        st.markdown("<h2 class='h-section'>⚙️ Modo usado</h2>", unsafe_allow_html=True)
-        st.info(mode_used or "(sin modo)")
-
-        if st.session_state.get("__edited_for_doc") != st.session_state.get("last_doc_id"):
-            st.session_state["edited_text_area"] = corrected_text
-            st.session_state["__edited_for_doc"] = st.session_state.get("last_doc_id")
-
-        if "edited_text_area" not in st.session_state:
-            st.session_state["edited_text_area"] = corrected_text
-
-        edited_text_current = st.session_state.get("edited_text_area", corrected_text)
-        cambios_usuario_total = word_levenshtein_count(original_joined or "", edited_text_current or "")
-
-        if metricas:
-            st.markdown("<h2 class='h-section'>📊 Métricas del texto actual</h2>", unsafe_allow_html=True)
-
-            col1, col2 = st.columns(2, gap="medium")
-            col1.metric("Total de frases", metricas.get("total_frases", 0))
-            col2.metric("Posibles frases con 'tú' impersonal", metricas.get("frases_con_tu_impersonal", 0))
-
-            col_o1, col_o2, col_o3 = st.columns(3, gap="medium")
-            col_o1.metric("Errores B/V", metricas.get("errores_b_v", 0))
-            col_o2.metric("Errores G/J", metricas.get("errores_g_j", 0))
-            col_o3.metric("Errores Y/LL", metricas.get("errores_y_ll", 0))
-
-            col_o4, col_o5, _ = st.columns(3, gap="medium")
-            col_o4.metric("Errores de H", metricas.get("errores_h", 0))
-            col_o5.metric("Errores de Tildes", metricas.get("errores_tildes", 0))
-
-            col3, col4 = st.columns(2, gap="medium")
-            col3.metric("Cambios propuestos (modelo)", metricas.get("cambios_propuestos_modelo", 0))
-            col4.metric("Cambios realizados (usuario)", cambios_usuario_total)
-
-        st.markdown("<h2 class='h-section'>📥 Texto original</h2>", unsafe_allow_html=True)
-        original_text_display = anal.get("original_text", "") or ""
-        st.markdown(
-            f"""
-            <textarea class="readonly-box" readonly style="white-space: pre-wrap; line-height: 1.5;">{original_text_display.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")}</textarea>
-            """,
-            unsafe_allow_html=True
-        )
-
-        st.markdown("<h2 class='h-section'>💻 Salida del modelo</h2>", unsafe_allow_html=True)
-        st.markdown(
-            f"""
-            <textarea class="readonly-box" readonly>{(corrected_text or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")}</textarea>
-            """,
-            unsafe_allow_html=True
-        )
-
-        st.markdown("<h2 class='h-section'>📚 Feedback</h2>", unsafe_allow_html=True)
-        feedback_text = anal.get("feedback", "") or ""
-        st.markdown(
-            f"""<textarea class="readonly-box" readonly style="white-space: pre-wrap; line-height: 1.5;">{feedback_text.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")}</textarea>""",
-            unsafe_allow_html=True
-        )
-
-        st.markdown("<h2 class='h-section'>📝 Revisa y edita el texto corregido</h2>", unsafe_allow_html=True)
-
-        def _save_user_changes_callback():
-            edited_now = st.session_state.get("edited_text_area", "")
-            changes_now = word_levenshtein_count(original_joined or "", edited_now or "")
-            last_saved = st.session_state.get(f"__last_saved_changes_{st.session_state.get('last_doc_id')}")
-            if last_saved is None or int(last_saved) != int(changes_now):
-                _post_user_changes(backend_url, st.session_state["last_doc_id"], int(changes_now))
-
-        edited_text = st.text_area(
-            "Tu versión final",
-            key="edited_text_area",
-            height=300,
-            on_change=_save_user_changes_callback,
-        )
-
-        if st.button("📅 Descargar PDF corregido"):
-            base = (st.session_state.get("last_pdf_name") or "Texto_Corregido").rsplit(".", 1)[0]
-            pdf_filename = f"{base}.pdf"
-            pdf_filename = save_text_as_pdf(edited_text, filename=pdf_filename)
-            with open(pdf_filename, "rb") as file:
-                st.download_button("Descargar el PDF", file, file_name=pdf_filename, mime="application/pdf")
-    else:
-        st.info("No hay análisis activo. Sube un PDF o escribe texto y pulsa “Analizar texto”.")
-
 def obtener_ejercicios_backend(backend_url, username, categoria):
     """Obtiene palabras de la bolsa del usuario y las formatea como tarjetas."""
     try:
@@ -1579,6 +1290,7 @@ def obtener_ejercicios_backend(backend_url, username, categoria):
                 
                 # Para los errores del backend, creamos un ejercicio de elegir la correcta
                 opciones = [p["palabra_correcta"], p["palabra_fallada"]]
+                import random
                 random.shuffle(opciones)
                 ejercicios_formateados.append({
                     "masked": "¿Cómo se escribe?", 
@@ -1728,6 +1440,394 @@ def mostrar_gimnasio(backend_url, username):
         if st.button("Volver al Gimnasio", use_container_width=True):
             st.session_state.gym_estado = "configuracion"
             st.rerun()
+# =========================
+# Main app
+# =========================
+def main_app():
+    st.sidebar.title("Opciones")
+    backend_url = os.getenv("BACKEND_URL", "http://localhost:8000")
+
+    if st.session_state.get("logged_in", False):
+        
+        # Obtenemos y guardamos el avatar en sesión para mostrarlo rápido
+        if "mi_avatar" not in st.session_state:
+            try:
+                r_prof = requests.get(f"{backend_url}/users/{st.session_state['usuario']}/profile", timeout=2)
+                st.session_state["mi_avatar"] = r_prof.json().get("profile", {}).get("avatar", "🐼") if r_prof.ok else "🐼"
+            except:
+                st.session_state["mi_avatar"] = "🐼"
+
+        inject_session_js(backend_url, st.session_state["usuario"])
+        
+        # ==========================================
+        # CSS MÁGICO PARA EL MENÚ Y EL AVATAR CIRCULAR
+        # ==========================================
+        st.markdown("""
+        <style>
+        /* 1. Botones normales del menú de navegación */
+        [data-testid="stSidebar"] div.stButton button {
+            justify-content: flex-start !important;
+            padding-left: 1rem !important;
+            font-size: 1.05rem !important;
+            font-weight: 500 !important;
+            border-radius: 8px !important;
+            border: none !important;
+            box-shadow: none !important;
+            margin-bottom: 0.1rem !important;
+            transition: all 0.2s ease;
+        }
+        [data-testid="stSidebar"] div.stButton button[kind="secondary"] {
+            background-color: transparent !important;
+            color: #475569 !important;
+        }
+        [data-testid="stSidebar"] div.stButton button[kind="secondary"]:hover {
+            background-color: #f1f5f9 !important;
+            color: #0f172a !important;
+        }
+        [data-testid="stSidebar"] div.stButton button[kind="primary"] {
+            background-color: #1e3a8a !important;
+            color: white !important;
+        }
+
+        /* 2. Botón del Avatar (Primera columna): Círculo Gigante Real */
+        [data-testid="stSidebar"] [data-testid="column"]:nth-child(1) div.stButton button {
+            width: 85px !important;
+            height: 85px !important;
+            min-width: 85px !important;
+            border-radius: 50% !important;
+            font-size: 4rem !important; /* Tamaño gigante para el avatar */
+            padding: 0 !important;
+            background: #ffffff !important;
+            border: 3px solid #e2e8f0 !important;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            margin-top: 0.5rem !important;
+            cursor: pointer !important;
+            z-index: 99 !important; /* Asegura que se pueda hacer clic */
+        }
+        [data-testid="stSidebar"] [data-testid="column"]:nth-child(1) div.stButton button p {
+            line-height: 1 !important;
+            margin: 0 !important;
+        }
+        [data-testid="stSidebar"] [data-testid="column"]:nth-child(1) div.stButton button:hover {
+            border-color: #3b82f6 !important;
+            transform: scale(1.05) !important;
+            background: #f8fafc !important;
+        }
+
+        .sidebar-divider {
+            margin: 1.5rem 0 1rem 0;
+            border-top: 1px solid #e2e8f0;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+        if "nav_actual" not in st.session_state:
+            st.session_state.nav_actual = "Corrector"
+
+        # ==========================================
+        # TARJETA DE PERFIL (AVATAR CLICABLE + NOMBRE TEXTO)
+        # ==========================================
+        c_ava, c_name = st.sidebar.columns([1.2, 2.5], gap="small")
+        
+        with c_ava:
+            # ESTE ES EL BOTÓN REAL: Al pulsarlo, va al perfil.
+            if st.button(st.session_state['mi_avatar'], key="btn_top_avatar"):
+                st.session_state.nav_actual = "Mi Perfil"
+                st.rerun()
+                
+        with c_name:
+            # TEXTO: Nombre de usuario centrado al lado del avatar
+            st.markdown(f"""
+            <div style="display: flex; align-items: center; height: 85px; margin-top: 0.5rem; padding-left: 5px;">
+                <div style="font-weight: 800; font-size: 1.4rem; color: #1e3a8a; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    {st.session_state['usuario']}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.sidebar.markdown("<div style='color: #64748b; font-weight: 700; font-size: 0.85rem; margin-top: 1.5rem; margin-bottom: 0.5rem; letter-spacing: 1px;'>NAVEGACIÓN</div>", unsafe_allow_html=True)
+
+        # ==========================================
+        # BOTONES DE NAVEGACIÓN NORMALES
+        # ==========================================
+        opciones_menu = [
+            ("📝 Corrector de Textos", "Corrector"),
+            ("🏋️ Gimnasio Ortográfico", "Gimnasio"),
+            ("📖 Repaso Teórico", "Repaso")
+        ]
+
+        for etiqueta, valor in opciones_menu:
+            tipo_boton = "primary" if st.session_state.nav_actual == valor else "secondary"
+            if st.sidebar.button(etiqueta, type=tipo_boton, key=f"nav_{valor}", use_container_width=True):
+                st.session_state.nav_actual = valor
+                st.rerun()
+
+        st.sidebar.markdown("<div class='sidebar-divider'></div>", unsafe_allow_html=True)
+
+        # ==========================================
+        # BOTONES INFERIORES
+        # ==========================================
+        if st.sidebar.button("🧹 Limpiar análisis actual", use_container_width=True, key="btn_limpiar"):
+            clear_current_analysis()
+            st.rerun()
+
+        if st.sidebar.button("🔚 Cerrar sesión", use_container_width=True, key="btn_cerrar"):
+            try:
+                requests.post(f"{backend_url}/users/logout", data={"username": st.session_state['usuario']}, timeout=5)
+            except Exception:
+                pass
+            st.session_state["logged_in"] = False
+            st.session_state.pop("usuario", None)
+            st.session_state.pop("mi_avatar", None)
+            _clear_status_cache()
+            _clear_metrics_cache()
+            clear_current_analysis()
+            st.rerun()
+
+    else:
+        st.sidebar.write("No has iniciado sesión.")
+        colL, colC = st.sidebar.columns(2)
+        if colL.button("🔓 Iniciar sesión"):
+            st.session_state["show_login"] = True
+            st.session_state["show_create_account"] = False
+            st.rerun()
+        if colC.button("📝 Crear cuenta"):
+            st.session_state["show_create_account"] = True
+            st.session_state["show_login"] = False
+            st.rerun()
+
+    # ==========================================
+    # LÓGICA DE RUTAS Y FORMULARIOS
+    # ==========================================
+    
+    # 1. Si NO está logueado, mostrar los formularios
+    if not st.session_state.get("logged_in", False):
+        st.title("📝 PALABRIA")
+        if st.session_state.get("show_login", False):
+            login()
+            return
+        elif st.session_state.get("show_create_account", False):
+            create_account()
+            return
+        else:
+            st.warning("Por favor, selecciona una opción en la barra lateral para iniciar sesión o registrarte.")
+            return
+
+    # 2. Si SÍ está logueado, redirigir según el menú lateral
+    modo_app = st.session_state.get("nav_actual", "Corrector")
+    
+    if modo_app == "Gimnasio":
+        mostrar_gimnasio(backend_url, st.session_state["usuario"])
+        return 
+    elif modo_app == "Repaso":
+        mostrar_repaso()
+        return
+    elif modo_app == "Mi Perfil":
+        mostrar_perfil(st.session_state["usuario"], backend_url)
+        return
+
+    # 3. Si es "Corrector", dibujamos la pantalla original
+    st.title("📝 PALABRIA - Corrector de Textos")
+
+    if "load_disparado" not in st.session_state:
+        st.session_state["load_disparado"] = False
+    if not st.session_state["load_disparado"]:
+        try:
+            requests.post(f"{backend_url}/load/", timeout=5)
+        except Exception:
+            pass
+        st.session_state["load_disparado"] = True
+
+    st.markdown("<h2 class='h-section'>Estado del modelo</h2>", unsafe_allow_html=True)
+    render_status(backend_url)
+
+    if not st.session_state.get("modelo_listo", False):
+        return
+
+    st.markdown("<div class='spacer-1cm'></div>", unsafe_allow_html=True)
+    st.markdown("<h2 class='h-section'>📤 ANALIZA TU PDF O PEGA TU TEXTO</h2>", unsafe_allow_html=True)
+
+    st.markdown("<h2 class='h-section'>Modo de corrección</h2>", unsafe_allow_html=True)
+    
+    def on_mode_change():
+        st.session_state["last_input_digest"] = None
+
+    mode_label = st.radio(
+        " ", 
+        list(MODE_OPTIONS.keys()), 
+        on_change=on_mode_change, 
+        horizontal=False, 
+        label_visibility="collapsed"
+    )
+
+    selected_mode = MODE_OPTIONS[mode_label]
+    st.caption(f"Modo seleccionado: **{selected_mode}**")
+
+    st.markdown("<h2 class='h-section'>Fuente de entrada</h2>", unsafe_allow_html=True)
+    modo_entrada = st.radio(" ", ["Subir PDF", "Escribir texto"], horizontal=True, label_visibility="collapsed")
+
+    texto_plano = None
+    uploaded_file = None
+    file_bytes = None
+    digest = None
+
+    if "last_input_digest" not in st.session_state:
+        st.session_state["last_input_digest"] = None
+    if "last_doc_id" not in st.session_state:
+        st.session_state["last_doc_id"] = None
+    if "last_analysis" not in st.session_state:
+        st.session_state["last_analysis"] = None
+
+    if modo_entrada == "Subir PDF":
+        st.markdown("<h2 class='h-section'>Sube tu PDF</h2>", unsafe_allow_html=True)
+        uploaded_file = st.file_uploader("", type=["pdf"], label_visibility="collapsed")
+
+        if uploaded_file is not None:
+            file_bytes = uploaded_file.getvalue()
+            digest = hashlib.sha256(file_bytes + selected_mode.encode("utf-8")).hexdigest()
+
+        should_process = (uploaded_file is not None) and (digest != st.session_state.get("last_input_digest"))
+
+        if should_process:
+            with st.spinner("Analizando el PDF..."):
+                files = {'file': (uploaded_file.name, file_bytes, "application/pdf")}
+                data = {'username': st.session_state["usuario"], 'mode': selected_mode}
+                response = requests.post(f"{backend_url}/process/", files=files, data=data, timeout=180)
+
+            if response.status_code == 200:
+                data = response.json()
+                st.session_state["last_input_digest"] = digest
+                st.session_state["last_pdf_name"] = uploaded_file.name
+                st.session_state["last_doc_id"] = data.get("doc_id")
+                corrected = data.get("corrected", "")
+                if not isinstance(corrected, str): corrected = str(corrected)
+
+                st.session_state["last_analysis"] = {
+                    "original_text": data.get("original_text", ""),
+                    "metricas": data.get("metricas", {}),
+                    "corrected_text": corrected,
+                    "feedback": data.get("feedback", ""),
+                    "mode_used": data.get("mode_used", selected_mode),
+                }
+                st.session_state["edited_text_area"] = corrected
+                st.session_state["__edited_for_doc"] = st.session_state["last_doc_id"]
+            else:
+                st.error(f"❌ Error al procesar el PDF (código {response.status_code})")
+                st.stop()
+
+    else:
+        st.markdown("<h2 class='h-section'>Escribir texto</h2>", unsafe_allow_html=True)
+        texto_plano = st.text_area("Pega aquí tu texto", height=200, key="__input_texto_plano")
+        default_name = st.session_state.get("__input_filename", "mi_texto.txt")
+        nombre_doc = st.text_input("Nombre del documento", value=default_name, key="__input_filename")
+        nombre_doc_norm = (nombre_doc or "mi_texto.txt").strip()
+        if "." not in nombre_doc_norm: nombre_doc_norm += ".txt"
+
+        col_a, col_b = st.columns([1, 3])
+        if col_a.button("Analizar texto"):
+            if not texto_plano or not texto_plano.strip():
+                st.warning("Escribe algún texto antes de analizar.")
+            else:
+                st.session_state.pop("edited_text_area", None)
+                st.session_state["last_analysis"] = None
+                digest = hashlib.sha256(((texto_plano or "") + "|" + selected_mode).encode("utf-8")).hexdigest()
+                if digest != st.session_state.get("last_input_digest"):
+                    with st.spinner("Analizando el texto..."):
+                        data = {'username': st.session_state["usuario"], 'text': texto_plano, 'filename': nombre_doc_norm, 'mode': selected_mode}
+                        response = requests.post(f"{backend_url}/process_text/", data=data, timeout=180)
+
+                    if response.status_code == 200:
+                        resp = response.json()
+                        st.session_state["last_input_digest"] = digest
+                        st.session_state["last_pdf_name"] = nombre_doc_norm
+                        st.session_state["last_doc_id"] = resp.get("doc_id")
+                        corrected = resp.get("corrected", "")
+                        if not isinstance(corrected, str): corrected = str(corrected)
+
+                        st.session_state["last_analysis"] = {
+                            "original_text": resp.get("original_text", ""),
+                            "metricas": resp.get("metricas", {}),
+                            "corrected_text": corrected,
+                            "feedback": resp.get("feedback", ""),
+                            "mode_used": resp.get("mode_used", selected_mode),
+                        }
+                        st.session_state["edited_text_area"] = corrected
+                        st.session_state["__edited_for_doc"] = st.session_state["last_doc_id"]
+                    else:
+                        st.error(f"❌ Error al procesar el texto")
+                        st.stop()
+
+    st.markdown("<div class='spacer-tabs'></div><hr>", unsafe_allow_html=True)
+
+    if has_current_analysis():
+        anal = st.session_state["last_analysis"]
+        metricas = anal.get("metricas", {})
+        original_joined = anal.get("original_text", "")
+        corrected_text = anal.get("corrected_text", "") or ""
+        
+        st.markdown("<h2 class='h-section'>⚙️ Modo usado</h2>", unsafe_allow_html=True)
+        st.info(anal.get("mode_used", "(sin modo)"))
+
+        if st.session_state.get("__edited_for_doc") != st.session_state.get("last_doc_id"):
+            st.session_state["edited_text_area"] = corrected_text
+            st.session_state["__edited_for_doc"] = st.session_state.get("last_doc_id")
+
+        if "edited_text_area" not in st.session_state:
+            st.session_state["edited_text_area"] = corrected_text
+
+        edited_text_current = st.session_state.get("edited_text_area", corrected_text)
+        cambios_usuario_total = word_levenshtein_count(original_joined or "", edited_text_current or "")
+
+        if metricas:
+            st.markdown("<h2 class='h-section'>📊 Métricas del texto actual</h2>", unsafe_allow_html=True)
+            col1, col2 = st.columns(2, gap="medium")
+            col1.metric("Total de frases", metricas.get("total_frases", 0))
+            col2.metric("Posibles frases con 'tú' impersonal", metricas.get("frases_con_tu_impersonal", 0))
+
+            c_o1, c_o2, c_o3 = st.columns(3, gap="medium")
+            c_o1.metric("Errores B/V", metricas.get("errores_b_v", 0))
+            c_o2.metric("Errores G/J", metricas.get("errores_g_j", 0))
+            c_o3.metric("Errores Y/LL", metricas.get("errores_y_ll", 0))
+
+            c_o4, c_o5, c_o6 = st.columns(3, gap="medium")
+            c_o4.metric("Errores de H", metricas.get("errores_h", 0))
+            c_o5.metric("Errores de Tildes", metricas.get("errores_tildes", 0))
+            c_o6.metric("Errores de C/Z/S", metricas.get("errores_c_z", 0))
+
+            col3, col4 = st.columns(2, gap="medium")
+            col3.metric("Cambios propuestos", metricas.get("cambios_propuestos_modelo", 0))
+            col4.metric("Cambios realizados", cambios_usuario_total)
+
+        st.markdown("<h2 class='h-section'>📥 Texto original</h2>", unsafe_allow_html=True)
+        st.markdown(f"""<textarea class="readonly-box" readonly style="white-space: pre-wrap; line-height: 1.5;">{(anal.get("original_text", "") or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")}</textarea>""", unsafe_allow_html=True)
+
+        st.markdown("<h2 class='h-section'>💻 Salida del modelo</h2>", unsafe_allow_html=True)
+        st.markdown(f"""<textarea class="readonly-box" readonly>{(corrected_text or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")}</textarea>""", unsafe_allow_html=True)
+
+        st.markdown("<h2 class='h-section'>📚 Feedback</h2>", unsafe_allow_html=True)
+        st.markdown(f"""<textarea class="readonly-box" readonly style="white-space: pre-wrap; line-height: 1.5;">{(anal.get("feedback", "") or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")}</textarea>""", unsafe_allow_html=True)
+
+        st.markdown("<h2 class='h-section'>📝 Revisa y edita el texto corregido</h2>", unsafe_allow_html=True)
+
+        def _save_user_changes_callback():
+            edited_now = st.session_state.get("edited_text_area", "")
+            changes_now = word_levenshtein_count(original_joined or "", edited_now or "")
+            last_saved = st.session_state.get(f"__last_saved_changes_{st.session_state.get('last_doc_id')}")
+            if last_saved is None or int(last_saved) != int(changes_now):
+                _post_user_changes(backend_url, st.session_state["last_doc_id"], int(changes_now))
+
+        edited_text = st.text_area("Tu versión final", key="edited_text_area", height=300, on_change=_save_user_changes_callback)
+
+        if st.button("📅 Descargar PDF corregido"):
+            base = (st.session_state.get("last_pdf_name") or "Texto_Corregido").rsplit(".", 1)[0]
+            pdf_filename = save_text_as_pdf(edited_text, filename=f"{base}.pdf")
+            with open(pdf_filename, "rb") as file:
+                st.download_button("Descargar el PDF", file, file_name=pdf_filename, mime="application/pdf")
+    else:
+        st.info("No hay análisis activo. Sube un PDF o escribe texto y pulsa “Analizar texto”.")
 
 if __name__ == "__main__":
     main_app()

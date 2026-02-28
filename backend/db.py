@@ -571,7 +571,7 @@ def check_and_award_badges(user_id: int):
                 ORDER BY d.id DESC LIMIT 15
             """, (user_id,)).fetchall()
 
-            if len(rows) == 15:
+            if len(rows) == 1:
                 if all((float(r['err']) / float(r['sus']) * 100) < 10.0 for r in rows):
                     con.execute("INSERT INTO user_badges (user_id, badge_name) VALUES (?, ?)", (user_id, badge_id))
                     ganadas_ahora.add(badge_id)
@@ -593,10 +593,11 @@ def check_and_award_badges(user_id: int):
                     con.execute("INSERT INTO user_badges (user_id, badge_name) VALUES (?, 'dominio_otros')", (user_id,))
                     ganadas_ahora.add("dominio_otros")
 
-        # C) Comprobar la medalla MÁSTER (Tiene las otras 6 básicas)
-        if len([b for b in ganadas_ahora if b != "master_ortografia" and b != "dominio_c_z"]) >= 6:
+        # C) Comprobar la medalla MÁSTER (Tiene las 7 insignias básicas)
+        if len([b for b in ganadas_ahora if b != "master_ortografia"]) >= 7:
             if "master_ortografia" not in ya_ganadas:
                 con.execute("INSERT INTO user_badges (user_id, badge_name) VALUES (?, 'master_ortografia')", (user_id,))
+
 def get_user_badges(username: str):
     """Devuelve la lista de insignias del usuario."""
     uid = get_user_id(username)
