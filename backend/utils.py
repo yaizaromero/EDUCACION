@@ -83,6 +83,16 @@ def quitar_tildes(s: str) -> str:
     """Elimina las tildes de una cadena para poder compararla."""
     return ''.join(c for c in unicodedata.normalize('NFD', s) 
                    if unicodedata.category(c) != 'Mn')
+                   
+def normalizar_czs(s: str) -> str:
+    """
+    Normaliza C/Z/S para comparar cambios típicos:
+    - s <-> c (ante e/i) <-> z
+    Nota: es heurístico, pero sirve para clasificar.
+    """
+    s = s.replace("z", "s")
+    s = s.replace("c", "s")
+    return s
 
 def categorizar_errores_ortograficos(orig: str, corr: str) -> list:
     """Compara la palabra original y la corregida para clasificar TODOS los errores presentes."""
@@ -110,6 +120,8 @@ def categorizar_errores_ortograficos(orig: str, corr: str) -> list:
                 chunk_cat.add("G_J")
             elif o_chunk.replace("ll", "y") == c_chunk.replace("ll", "y"):
                 chunk_cat.add("Y_LL")
+            elif normalizar_czs(o_chunk) == normalizar_czs(c_chunk) and o_chunk != c_chunk:
+                chunk_cat.add("C_Z")
             else:
                 # Si es un fragmento compuesto (ej: "bi" -> "ví" tiene B_V y TILDES)
                 o_sin = quitar_tildes(o_chunk)
@@ -129,7 +141,9 @@ def categorizar_errores_ortograficos(orig: str, corr: str) -> list:
                     elif o_sin.replace("h", "") == c_sin.replace("h", ""):
                         chunk_cat.add("H")
                         matched = True
-                
+                    elif normalizar_czs(o_sin) == normalizar_czs(c_sin):
+                        chunk_cat.add("C_Z"); matched = True
+                        matched = True
                 # Evaluamos tildes en fragmentos compuestos
                 if o_chunk != c_chunk and o_sin == c_sin:
                     chunk_cat.add("TILDES")
@@ -158,6 +172,7 @@ def extraer_listas_errores(texto_original: str, texto_corregido: str) -> dict:
         "B_V": [],
         "G_J": [],
         "Y_LL": [],
+        "C_Z": [],
         "H": [],
         "TILDES": [],
         "OTROS": []
@@ -177,60 +192,61 @@ def extraer_listas_errores(texto_original: str, texto_corregido: str) -> dict:
                         
     return listas_errores
 
-def corregir_y_extraer_errores(texto: str, mode: str = "ortografia"):
+def corregir_y_extraer_errores(
+    texto: str,
+    mode: str = "ortografia",
+    corrected_text: str | None = None
+):
     """
-    Función principal para usar en cualquier parte de tu código.
-    Dado un texto, lo corrige usando el LLM y devuelve el texto corregido 
-    y el diccionario con las 6 categorías de errores.
+    - Si corrected_text viene dado, NO vuelve a llamar al LLM.
+    - Si no viene, corrige con el LLM (según mode).
+    - Devuelve (texto_corregido, listas_errores)
     """
-    if not texto or not texto.strip():
-        return "", {"B_V": [], "G_J": [], "Y_LL": [], "H": [], "TILDES": [], "OTROS": []}
+    empty = {"B_V": [], "G_J": [], "Y_LL": [], "H": [], "TILDES": [], "C_Z": [], "OTROS": []}
 
-    # 1. Usar el modelo para generar el texto corregido pasándole el 'mode'
-    texto_corregido = model.correct_full_text(texto, mode=mode)
-    
-    # 2. Analizar las diferencias para sacar las listas
+    if not texto or not texto.strip():
+        return "", empty
+
+    if corrected_text is not None:
+        texto_corregido = corrected_text
+    else:
+        texto_corregido = model.correct_full_text(texto, mode=mode)
+
     listas_errores = extraer_listas_errores(texto, texto_corregido)
-    
     return texto_corregido, listas_errores
 
 def contar_palabras_susceptibles(texto_corregido: str) -> dict:
-    """Cuenta cuántas palabras son susceptibles de fallar en cada categoría (denominador)."""
-    # Extraemos palabras ignorando signos de puntuación
-    palabras = re.findall(r'\b[a-záéíóúüñA-ZÁÉÍÓÚÜÑ]+\b', texto_corregido.lower())
-    
-    counts = {"B_V": 0, "G_J": 0, "Y_LL": 0, "H": 0, "C_Z": 0, "TILDES": 0}
-    
-    for w in palabras:
-        if 'b' in w or 'v' in w: counts["B_V"] += 1
-        if 'g' in w or 'j' in w: counts["G_J"] += 1
-        if 'y' in w or 'll' in w: counts["Y_LL"] += 1
-        if 'h' in w: counts["H"] += 1
-        if 'c' in w or 'z' in w or 's' in w: counts["C_Z"] += 1
-        # Palabras con vocales acentuadas
-        if any(c in w for c in 'áéíóú'): counts["TILDES"] += 1
-        
-    return counts
-
-def contar_palabras_susceptibles(texto_corregido: str) -> dict:
     import re
-    palabras = re.findall(r'\b[a-záéíóúüñA-ZÁÉÍÓÚÜÑ]+\b', texto_corregido.lower())
     
-    counts = {"B_V": 0, "G_J": 0, "Y_LL": 0, "H": 0, "C_Z": 0, "TILDES": 0, "OTROS": len(palabras)}
+    palabras = re.findall(r'\b[a-záéíóúüñ]+\b', texto_corregido.lower())
+    
+    counts = {
+        "B_V": 0,
+        "G_J": 0,
+        "Y_LL": 0,
+        "H": 0,
+        "C_Z": 0,
+        "TILDES": 0,
+        "OTROS": len(palabras)
+    }
     
     for w in palabras:
-        if 'b' in w or 'v' in w: counts["B_V"] += 1
+        if 'b' in w or 'v' in w:
+            counts["B_V"] += 1
         
-        # Mantenemos la mejora de G/J para que no cuente "gato" o "gusano"
-        if 'j' in w or 'ge' in w or 'gi' in w: counts["G_J"] += 1
+        if 'j' in w or re.search(r'g[ei]', w):
+            counts["G_J"] += 1
         
-        if 'y' in w or 'll' in w: counts["Y_LL"] += 1
-        if 'h' in w: counts["H"] += 1
+        if 'y' in w or 'll' in w:
+            counts["Y_LL"] += 1
         
-        # REGLA ACTUALIZADA: Solo miramos la C y la Z (Ignoramos la S)
-        if 'c' in w or 'z' in w: 
+        if 'h' in w:
+            counts["H"] += 1
+        
+        if 'c' in w or 'z' in w:
             counts["C_Z"] += 1
-            
-        if any(c in w for c in 'áéíóú'): counts["TILDES"] += 1
         
+        if any(c in w for c in 'áéíóú'):
+            counts["TILDES"] += 1
+    
     return counts

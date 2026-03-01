@@ -125,23 +125,49 @@ def user_heartbeat(username: str = Form(...)):
 # ============================================================
 
 def procesar_analisis_completo(original_text, uid, filename, mode="ortografia"):
-    # 1. Corrección y Extracción unificada
-    corrected_text, errores_extraidos = corregir_y_extraer_errores(original_text, mode=mode)
-    susceptibles = contar_palabras_susceptibles(corrected_text)
-    # 2. Generar explicación
-    feedback = model.generate_feedback(original_text, corrected_text)
+    # 0) Guardas de seguridad
+    original_text = original_text or ""
+    if not original_text.strip():
+        raise HTTPException(status_code=400, detail="Texto vacío.")
 
-    # 3. Detección de Tú Impersonal
+    # ------------------------------------------------------------
+    # 1) CORRECCIÓN (1 sola vez) + EXTRACCIÓN DE ERRORES (determinista)
+    # ------------------------------------------------------------
+    # OJO: corregir_y_extraer_errores YA hace: correct_full_text(mode) + diff para listas
+    corrected_text, errores_extraidos = corregir_y_extraer_errores(original_text, mode=mode)
+
+    # Susceptibles se calculan siempre sobre el texto corregido (mejor baseline)
+    susceptibles = contar_palabras_susceptibles(corrected_text)
+
+    # ------------------------------------------------------------
+    # 2) FEEDBACK (según modo)
+    # ------------------------------------------------------------
+    if mode == "ortografia":
+        # ✅ Feedback robusto: determinista + (opcional) redacción con LLM a partir de JSON
+        # Esto evita que el LLM "invente" cambios o reglas.
+        feedback = model.feedback_orthography(original_text, corrected_text, use_llm=True)
+    else:
+        # ✅ Tú impersonal: feedback como lo tenías (explica cambios entre original/corregido)
+        feedback = model.generate_feedback(original_text, corrected_text, mode=mode)
+
+    # ------------------------------------------------------------
+    # 3) DETECCIÓN DE TÚ IMPERSONAL (solo para métricas; no cambia texto aquí)
+    # ------------------------------------------------------------
     errores_posibles, _ = posible_tu_impersonal(original_text)
     num_tu = len(errores_posibles) if isinstance(errores_posibles, list) else 0
 
-    # 4. Cálculo de métricas generales
+    # ------------------------------------------------------------
+    # 4) MÉTRICAS GENERALES
+    # ------------------------------------------------------------
     sentences = split_into_sentences(original_text)
     total_frases = len(sentences)
+
     cambios_modelo = word_levenshtein_count(original_text, corrected_text)
 
-    # 5. Guardar en Base de Datos
-    text_hash = hashlib.sha256((original_text or "").encode("utf-8")).hexdigest()
+    # ------------------------------------------------------------
+    # 5) GUARDADO EN BD + BOLSA DE PALABRAS
+    # ------------------------------------------------------------
+    text_hash = hashlib.sha256(original_text.encode("utf-8")).hexdigest()
     doc_id = create_document(uid, filename, text_hash)
 
     agregar_palabras_bolsa(uid, errores_extraidos)
@@ -149,37 +175,37 @@ def procesar_analisis_completo(original_text, uid, filename, mode="ortografia"):
     metrics_to_save = {
         "total_frases": total_frases,
         "frases_con_tu_impersonal": num_tu,
-        
+
         "errores_b_v": len(errores_extraidos.get("B_V", [])),
-        "susceptibles_b_v": susceptibles["B_V"],
-        
+        "susceptibles_b_v": susceptibles.get("B_V", 0),
+
         "errores_g_j": len(errores_extraidos.get("G_J", [])),
-        "susceptibles_g_j": susceptibles["G_J"],
-        
+        "susceptibles_g_j": susceptibles.get("G_J", 0),
+
         "errores_y_ll": len(errores_extraidos.get("Y_LL", [])),
-        "susceptibles_y_ll": susceptibles["Y_LL"],
-        
+        "susceptibles_y_ll": susceptibles.get("Y_LL", 0),
+
         "errores_h": len(errores_extraidos.get("H", [])),
-        "susceptibles_h": susceptibles["H"],
-        
+        "susceptibles_h": susceptibles.get("H", 0),
+
+        # ✅ preparado para cuando añadas C_Z en extraer_listas_errores
         "errores_c_z": len(errores_extraidos.get("C_Z", [])),
-        "susceptibles_c_z": susceptibles["C_Z"],
-        
+        "susceptibles_c_z": susceptibles.get("C_Z", 0),
+
         "errores_tildes": len(errores_extraidos.get("TILDES", [])),
-        "susceptibles_tildes": susceptibles["TILDES"],
+        "susceptibles_tildes": susceptibles.get("TILDES", 0),
 
         "errores_otros": len(errores_extraidos.get("OTROS", [])),
-        "susceptibles_otros": susceptibles["OTROS"],
+        "susceptibles_otros": susceptibles.get("OTROS", 0),
 
         "cambios_propuestos_modelo": cambios_modelo,
-        "cambios_realizados_usuario": cambios_modelo
+        "cambios_realizados_usuario": cambios_modelo,
     }
 
     for name, value in metrics_to_save.items():
         insert_metric(doc_id, name, float(value))
 
     actualizar_niveles_usuario(uid, limit=15)
-
     check_and_award_badges(uid)
 
     return {
@@ -189,9 +215,8 @@ def procesar_analisis_completo(original_text, uid, filename, mode="ortografia"):
         "feedback": feedback,
         "errores_posibles": errores_posibles,
         "metricas": metrics_to_save,
-        "listas_errores": errores_extraidos
+        "listas_errores": errores_extraidos,
     }
-
 @app.post("/process/")
 async def process_pdf(file: UploadFile = File(...), username: str = Form(...), mode: str = Form("ortografia")):
     username = sanitize_username(username)

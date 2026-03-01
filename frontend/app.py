@@ -1757,7 +1757,12 @@ def main_app():
                         st.session_state["edited_text_area"] = corrected
                         st.session_state["__edited_for_doc"] = st.session_state["last_doc_id"]
                     else:
-                        st.error(f"❌ Error al procesar el texto")
+                        try:
+                            detail = response.json()
+                        except Exception:
+                            detail = response.text
+                        st.error(f"❌ Error al procesar el texto (HTTP {response.status_code})")
+                        st.code(detail)
                         st.stop()
 
     st.markdown("<div class='spacer-tabs'></div><hr>", unsafe_allow_html=True)
