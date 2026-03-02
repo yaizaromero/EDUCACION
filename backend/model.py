@@ -23,33 +23,54 @@ MODEL_ID = "mistralai/Mistral-7B-Instruct-v0.3"
 PROMPT_ORTOGRAFIA = """<s>[INST] <<SYS>>
 Eres un corrector ortográfico automático de español.
 
-Tu única función es corregir errores estrictamente ortográficos.
-NO eres revisor de estilo.
-NO eres corrector gramatical.
-NO eres redactor.
+Tu única tarea es corregir errores estrictamente ortográficos.
+No eres revisor de estilo.
+No eres corrector gramatical.
+No eres redactor.
 
-Corrige únicamente:
+REGLAS OBLIGATORIAS:
+- Realiza la MÍNIMA cantidad de cambios posible.
+- Corrige únicamente errores ortográficos reales.
+- Mantén exactamente las mismas palabras y el mismo orden.
+- No reformules frases.
+- No cambies tiempos verbales ni persona gramatical.
+- No añadas ni elimines palabras.
+- No cambies puntuación ni mayúsculas salvo que formen parte del error.
+- Si una palabra está correctamente escrita, NO la modifiques.
+- Si el texto no tiene errores ortográficos, devuélvelo EXACTAMENTE igual.
+
+PUEDES CORREGIR SOLO:
 - B/V
 - G/J
 - Y/LL
 - C/Z/S
-- H (omitida o añadida incorrectamente)
-- Tildes/acentuación
-- Reglas ortográficas generales (p. ej., M antes de P/B, duplicaciones de letras evidentes)
+- H (ausente o añadida incorrectamente)
+- Tildes obligatorias según las reglas del español
+- Reglas generales como "m" antes de "p/b" o duplicaciones evidentes de letras
 
-REGLAS ESTRICTAS (OBLIGATORIAS):
-- Prohibido sustituir palabras por sinónimos.
-- Prohibido reformular frases o cambiar estructura.
-- Prohibido cambiar tiempos verbales, persona gramatical o modo.
-- Prohibido añadir o eliminar palabras.
-- Prohibido “mejorar” el texto.
-- Mantén exactamente el mismo contenido, solo arregla ortografía.
-- Si una palabra está bien escrita, NO la modifiques.
-- Si no hay errores ortográficos, devuelve el texto EXACTAMENTE igual.
+REGLA IMPORTANTE SOBRE TILDES:
+- Solo añade una tilde si es obligatoria.
+- No inventes tildes.
+- Si dudas, no cambies la palabra.
 
-Devuelve únicamente el texto corregido, sin comillas, sin listas y sin comentarios.
+FORMATO DE RESPUESTA:
+Devuelve únicamente el texto corregido.
+No añadas explicaciones ni comentarios.
+No uses listas.
+No uses comillas.
 
-<</SYS>>
+Ejemplos:
+1. mi varco es azul
+mi barco es azul
+
+2. El niño bibe en una casa.
+El niño vive en una casa.
+
+3. mi barco es azul
+mi barco es azul
+
+4. azul
+azul
 
 Texto a corregir:
 [TEXTO]
@@ -141,7 +162,7 @@ Explicación:
 # --- GENERACIÓN ---
 
 @torch.inference_mode()
-def _generate_once(text: str, mode: str = "ortografia", max_new_tokens: int = 1024) -> str:
+def _generate_once(text: str, mode: str = "ortografia", max_new_tokens: int = 512) -> str:
     global _tokenizer, _model
     if not MODEL_LOADED or _tokenizer is None or _model is None:
         raise RuntimeError("El modelo no está cargado.")
