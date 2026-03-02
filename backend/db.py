@@ -571,7 +571,7 @@ def check_and_award_badges(user_id: int):
                 ORDER BY d.id DESC LIMIT 15
             """, (user_id,)).fetchall()
 
-            if len(rows) == 1:
+            if len(rows) == 15:
                 if all((float(r['err']) / float(r['sus']) * 100) < 10.0 for r in rows):
                     con.execute("INSERT INTO user_badges (user_id, badge_name) VALUES (?, ?)", (user_id, badge_id))
                     ganadas_ahora.add(badge_id)
