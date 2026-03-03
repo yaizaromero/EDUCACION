@@ -30,7 +30,9 @@ from backend.db import (
     get_niveles_usuario,
     check_and_award_badges, 
     get_user_badges,
-    update_user_streak, get_user_profile, update_user_avatar
+    update_user_streak, get_user_profile, update_user_avatar,
+    get_all_students_info, get_class_overview_metrics,
+    set_user_feedback
 )
 
 app = FastAPI(title="PALABRIA Backend")
@@ -78,9 +80,16 @@ def user_create(username: str = Form(...)):
 def user_login(username: str = Form(...)):
     try:
         username = sanitize_username(username)
+        
+        # 🔑 PASE VIP PARA EL PROFESOR: Si es admin y no existe, se crea en la sombra
+        if username == "admin":
+            if not user_exists("admin"):
+                create_user("admin")
+                
         uid = get_user_id(username)
         if uid is None:
             raise HTTPException(status_code=404, detail="La cuenta no existe. Crea una nueva.")
+            
         record_usage(uid, "login", None)
         record_login_ts(uid, time.time())
         update_user_streak(uid)
@@ -322,3 +331,30 @@ def user_avatar_endpoint(username: str, avatar: str = Form(...)):
     username = sanitize_username(username)
     update_user_avatar(username, avatar)
     return {"ok": True}
+
+# ============================================================
+# PANEL DE CONTROL DEL PROFESOR (ADMIN)
+# ============================================================
+
+@app.get("/admin/students")
+def admin_students():
+    try:
+        return {"ok": True, "students": get_all_students_info()}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/admin/metrics")
+def admin_metrics():
+    try:
+        return {"ok": True, "metrics": get_class_overview_metrics()}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@app.post("/admin/students/{username}/feedback")
+def set_feedback_endpoint(username: str, sticker: str = Form(...)):
+    try:
+        username = sanitize_username(username)
+        set_user_feedback(username, sticker)
+        return {"ok": True}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

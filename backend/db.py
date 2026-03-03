@@ -94,6 +94,7 @@ CREATE TABLE IF NOT EXISTS user_profiles(
   avatar TEXT DEFAULT '🐼',
   current_streak INTEGER DEFAULT 1,
   last_login_date TEXT,
+  active_feedback TEXT,
   FOREIGN KEY(user_id) REFERENCES users(id)
 );
 """
@@ -102,6 +103,10 @@ def init_db():
     con = sqlite3.connect(DB_PATH)
     try:
         con.executescript(DDL)
+        try:
+            con.execute("ALTER TABLE user_profiles ADD COLUMN active_feedback TEXT;")
+        except sqlite3.OperationalError:
+            pass
         con.commit()
     finally:
         con.close()
@@ -626,14 +631,63 @@ def update_user_streak(user_id: int):
                 con.execute("UPDATE user_profiles SET current_streak=1, last_login_date=? WHERE user_id=?", (today, user_id))
 
 def get_user_profile(username: str):
-    """Devuelve el avatar y la racha del usuario."""
+    """Devuelve el avatar, la racha y el feedback del usuario."""
     uid = get_user_id(username)
     with db() as con:
-        row = con.execute("SELECT avatar, current_streak FROM user_profiles WHERE user_id=?", (uid,)).fetchone()
+        row = con.execute("SELECT avatar, current_streak, active_feedback FROM user_profiles WHERE user_id=?", (uid,)).fetchone()
         if row: return dict(row)
-        return {"avatar": "🐼", "current_streak": 1}
+        return {"avatar": "🐼", "current_streak": 1, "active_feedback": None}
+
+def set_user_feedback(username: str, feedback: str):
+    """Guarda la pegatina que le ha puesto el profesor."""
+    uid = get_user_id(username)
+    with db() as con:
+        con.execute("UPDATE user_profiles SET active_feedback=? WHERE user_id=?", (feedback, uid))
 
 def update_user_avatar(username: str, avatar: str):
     uid = get_user_id(username)
     with db() as con:
         con.execute("UPDATE user_profiles SET avatar=? WHERE user_id=?", (avatar, uid))
+
+def get_all_students_info():
+    """Devuelve la lista de todos los alumnos con su avatar y su nivel general."""
+    with db() as con:
+        rows = con.execute("""
+            SELECT u.username,
+                   COALESCE(p.avatar, '🐼') as avatar,
+                   COALESCE(l.nivel_general, '⚪ Sin datos') as nivel_general
+            FROM users u
+            LEFT JOIN user_profiles p ON u.id = p.user_id
+            LEFT JOIN user_levels l ON u.id = l.user_id
+            WHERE u.username != 'admin'
+            ORDER BY u.username
+        """).fetchall()
+        return [dict(r) for r in rows]
+
+def get_class_overview_metrics():
+    """Calcula las métricas promedio de toda la clase."""
+    with db() as con:
+        row_docs = con.execute("SELECT COUNT(*) as c FROM documents d JOIN users u ON d.user_id = u.id WHERE u.username != 'admin'").fetchone()
+        total_docs = row_docs["c"] if row_docs else 0
+        
+        row_users = con.execute("SELECT COUNT(*) as c FROM users WHERE username != 'admin'").fetchone()
+        total_users = row_users["c"] if row_users else 0
+        
+        avg_metrics = con.execute("""
+            WITH latest AS (
+                SELECT m.* FROM metrics m
+                JOIN documents d ON d.id = m.document_id
+                JOIN users u ON u.id = d.user_id
+                JOIN (
+                    SELECT document_id, metric_name, MAX(id) AS max_id
+                    FROM metrics GROUP BY document_id, metric_name
+                ) mx ON mx.max_id = m.id
+                WHERE u.username != 'admin'
+            )
+            SELECT metric_name, AVG(metric_value) AS avg_value
+            FROM latest
+            GROUP BY metric_name
+        """).fetchall()
+        
+        avg_dict = {r["metric_name"]: float(r["avg_value"]) for r in avg_metrics}
+        return {"total_docs": total_docs, "total_students": total_users, "avg_metrics": avg_dict}
