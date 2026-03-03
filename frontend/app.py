@@ -17,7 +17,7 @@ def get_base64_image(image_path):
         with open(image_path, "rb") as img_file:
             encoded_string = base64.b64encode(img_file.read()).decode()
         return f"data:image/png;base64,{encoded_string}"
-    except Exception as e:
+    except Exception:
         return "👑"  
     
 EJERCICIOS_BASE = {
@@ -131,8 +131,6 @@ EJERCICIOS_BASE = {
     }
 }
 
-
-
 st.set_page_config(page_title="PALABRIA", layout="centered")
 
 # =========================
@@ -202,24 +200,14 @@ def fetch_status(backend_url, timeout=5):
         r = requests.get(f"{backend_url}/status/", timeout=timeout)
         if r.ok:
             data = r.json()
-            return {
-                "modelo_listo": bool(data.get("modelo_listo", False)),
-                "progress": int(data.get("progress", 0)),
-                "message": data.get("message", "⚡ Cargando…"),
-            }
-    except Exception as e:
-        return {"modelo_listo": False, "progress": 0, "message": f"No conectado: {e}"}
+            return {"modelo_listo": bool(data.get("modelo_listo", False)), "progress": int(data.get("progress", 0)), "message": data.get("message", "⚡ Cargando…")}
+    except Exception:
+        return {"modelo_listo": False, "progress": 0, "message": "No conectado al backend."}
     return {"modelo_listo": False, "progress": 0, "message": "Desconocido"}
 
 def _normalize_for_diff(text: str) -> str:
-    if not text:
-        return ""
-    t = text
-    t = t.replace("…", "...")
-    t = t.replace("“", '"').replace("”", '"')
-    t = t.replace("‘", "'").replace("’", "'")
-    t = t.replace("—", "-").replace("–", "-")
-    t = t.replace("\r\n", "\n").replace("\r", "\n")
+    if not text: return ""
+    t = text.replace("…", "...").replace("“", '"').replace("”", '"').replace("‘", "'").replace("’", "'").replace("—", "-").replace("–", "-").replace("\r\n", "\n").replace("\r", "\n")
     return t.strip()
 
 def word_levenshtein_count(a_text: str, b_text: str) -> int:
@@ -231,17 +219,12 @@ def pretty_int(x):
     try:
         fx = float(x)
         return int(fx) if fx.is_integer() else fx
-    except Exception:
-        return x
+    except Exception: return x
 
 def pretty_hms(seconds: float) -> str:
-    try:
-        s = int(round(float(seconds)))
-    except Exception:
-        s = 0
-    h = s // 3600
-    m = (s % 3600) // 60
-    ss = s % 60
+    try: s = int(round(float(seconds)))
+    except Exception: s = 0
+    h, m, ss = s // 3600, (s % 3600) // 60, s % 60
     parts = []
     if h > 0: parts.append(f"{h} h")
     if m > 0 or h > 0: parts.append(f"{m} min")
@@ -260,35 +243,13 @@ def inject_session_js(backend_url: str, username: str):
       function postForm(url, dataObj) {{
         const formData = new URLSearchParams();
         for (const k in dataObj) formData.append(k, dataObj[k]);
-        return fetch(url, {{
-          method: "POST",
-          mode: "cors",
-          headers: {{"Content-Type":"application/x-www-form-urlencoded"}},
-          body: formData.toString()
-        }}).catch(()=>{{}});
+        return fetch(url, {{method: "POST", mode: "cors", headers: {{"Content-Type":"application/x-www-form-urlencoded"}}, body: formData.toString()}}).catch(()=>{{}});
       }}
-
       const sendHeartbeat = () => postForm(hbUrl, {{username}});
-      sendHeartbeat();
-      const hbTimer = setInterval(sendHeartbeat, 20000);
-
-      function beaconLogout() {{
-        try {{
-          if (!navigator.sendBeacon) {{
-            postForm(loUrl, {{username}});
-            return;
-          }}
-          const data = new URLSearchParams();
-          data.append("username", username);
-          const blob = new Blob([data.toString()], {{type: "application/x-www-form-urlencoded"}});
-          navigator.sendBeacon(loUrl, blob);
-        }} catch (e) {{}}
-      }}
-
+      sendHeartbeat(); setInterval(sendHeartbeat, 20000);
+      function beaconLogout() {{ try {{ if (!navigator.sendBeacon) {{ postForm(loUrl, {{username}}); return; }} const data = new URLSearchParams(); data.append("username", username); const blob = new Blob([data.toString()], {{type: "application/x-www-form-urlencoded"}}); navigator.sendBeacon(loUrl, blob); }} catch (e) {{}} }}
       window.addEventListener("beforeunload", beaconLogout);
-      document.addEventListener("visibilitychange", function(){{
-        if (document.visibilityState === "hidden") beaconLogout();
-      }});
+      document.addEventListener("visibilitychange", function(){{ if (document.visibilityState === "hidden") beaconLogout(); }});
     }})();
     </script>
     """
@@ -296,45 +257,33 @@ def inject_session_js(backend_url: str, username: str):
 
 def has_current_analysis() -> bool:
     anal = st.session_state.get("last_analysis")
-    if not anal:
-        return False
-    return bool(anal.get("original_text") or anal.get("corrected_text"))
+    return bool(anal.get("original_text") or anal.get("corrected_text")) if anal else False
 
 def clear_current_analysis():
-    for k in ["last_input_digest","last_pdf_name","last_doc_id",
-              "last_analysis","edited_text_area","__edited_for_doc"]:
+    for k in ["last_input_digest","last_pdf_name","last_doc_id","last_analysis","edited_text_area","__edited_for_doc"]:
         st.session_state.pop(k, None)
 
 def _clear_status_cache():
-    for k in ["modelo_listo","status_progress","status_message",
-              "notificado_listo","last_status_check"]:
+    for k in ["modelo_listo","status_progress","status_message","notificado_listo","last_status_check"]:
         st.session_state.pop(k, None)
 
 def _clear_metrics_cache():
-    for k in ["__cache_overview","__cache_documents"]:
-        st.session_state.pop(k, None)
+    for k in ["__cache_overview","__cache_documents"]: st.session_state.pop(k, None)
     for k in list(st.session_state.keys()):
-        if str(k).startswith("__cache_doc_"):
-            st.session_state.pop(k, None)
+        if str(k).startswith("__cache_doc_"): st.session_state.pop(k, None)
 
 def _fetch_and_cache_doc_metrics(backend_url, doc_id: int):
     try:
         m = requests.get(f"{backend_url}/documents/{doc_id}/metrics", timeout=20).json()["metrics"]
         st.session_state[f"__cache_doc_{doc_id}"] = m
-    except Exception:
-        pass
+    except Exception: pass
 
 def _post_user_changes(backend_url, doc_id: int, changes: int):
     try:
-        requests.post(
-            f"{backend_url}/documents/{doc_id}/user_changes",
-            data={"changes": changes},
-            timeout=10
-        )
+        requests.post(f"{backend_url}/documents/{doc_id}/user_changes", data={"changes": changes}, timeout=10)
         st.session_state[f"__last_saved_changes_{doc_id}"] = int(changes)
         _fetch_and_cache_doc_metrics(backend_url, doc_id)
-    except Exception:
-        pass
+    except Exception: pass
 
 # =========================
 # Auth forms
@@ -360,15 +309,11 @@ def login():
                         clear_current_analysis()
                         st.rerun()
                     else:
-                        try:
-                            msg = r.json().get("detail", r.text)
-                        except Exception:
-                            msg = r.text
+                        try: msg = r.json().get("detail", r.text)
+                        except Exception: msg = r.text
                         st.error(msg or "No se pudo iniciar sesión.")
-                except Exception as e:
-                    st.error(f"Error conectando con backend: {e}")
-            else:
-                st.warning("Por favor, escribe un nombre de usuario.")
+                except Exception as e: st.error(f"Error conectando con backend: {e}")
+            else: st.warning("Por favor, escribe un nombre de usuario.")
 
 def create_account():
     with st.form("create_account_form"):
@@ -391,22 +336,19 @@ def create_account():
                         clear_current_analysis()
                         st.rerun()
                     else:
-                        try:
-                            msg = r.json().get("detail", r.text)
-                        except Exception:
-                            msg = r.text
+                        try: msg = r.json().get("detail", r.text)
+                        except Exception: msg = r.text
                         st.error(msg or "No se pudo crear la cuenta.")
-                except Exception as e:
-                    st.error(f"Error conectando con backend: {e}")
-            else:
-                st.warning("Por favor, escribe un nombre de usuario.")
+                except Exception as e: st.error(f"Error conectando con backend: {e}")
+            else: st.warning("Por favor, escribe un nombre de usuario.")
+
 
 # =========================
-# VISTA DE PROFESOR
+# VISTAS PROFESOR (ADMIN)
 # =========================
 def mostrar_admin_alumnos(backend_url):
     if st.session_state.get("admin_view_student"):
-        if st.button("⬅️ Volver a la vista de alumnos", type="primary"):
+        if st.button("⬅️ Volver a la lista de alumnos", type="primary"):
             st.session_state.admin_view_student = None
             st.rerun()
         mostrar_perfil(st.session_state.admin_view_student, backend_url)
@@ -431,7 +373,6 @@ def mostrar_admin_alumnos(backend_url):
         col = cols[i % 3]
         with col:
             color_lvl = "#eab308" if "Medio" in s['nivel_general'] else "#22c55e" if "Avanzado" in s['nivel_general'] else "#ef4444" if "Bajo" in s['nivel_general'] else "#9ca3af"
-            
             st.markdown(f"""
             <div style="background-color: #f8fafc; border: 2px solid #e2e8f0; border-radius: 15px; padding: 1.5rem; text-align: center; position: relative; margin-bottom: 1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
                 <div style="position: absolute; top: 10px; right: 10px; width: 25px; height: 25px; background-color: {color_lvl}; border-radius: 50%; border: 2px solid white;" title="{s['nivel_general']}"></div>
@@ -440,7 +381,6 @@ def mostrar_admin_alumnos(backend_url):
                 <div style="color: #64748b; font-size: 0.9rem; font-weight: 500; margin-top: 5px;">Nivel: {s['nivel_general'].replace('🟢', '').replace('🟡', '').replace('🔴', '').replace('⚪', '').strip()}</div>
             </div>
             """, unsafe_allow_html=True)
-            
             if st.button("Ver Expediente", key=f"ver_{s['username']}", use_container_width=True):
                 st.session_state.admin_view_student = s['username']
                 st.rerun()
@@ -483,7 +423,7 @@ def mostrar_admin_metricas(backend_url):
         st.info("Todavía no hay suficientes datos en la clase para mostrar gráficas.")
 
 # =========================
-# Metrics screens 
+# VISTA DE PERFIL (ALUMNO Y PROFE)
 # =========================
 def cargar_metricas(username, backend_url):
     ov = requests.get(f"{backend_url}/users/{username}/overview", timeout=20).json()
@@ -504,9 +444,7 @@ def mostrar_perfil(username, backend_url):
     titulo = "👤 Mi Perfil" if es_propietario else f"👤 Perfil del Alumno: {username}"
     st.markdown(f"<h1 style='text-align: center; margin-bottom: 2rem;'>{titulo}</h1>", unsafe_allow_html=True)
     
-    # ------------------------------------------------------------
-    # PANEL DEL PROFESOR: Enviar Pegatinas
-    # ------------------------------------------------------------
+    # --- PANEL DEL PROFESOR (Pegatinas) ---
     if es_admin:
         st.markdown("""
         <div style='background-color: #f8fafc; border: 2px dashed #3b82f6; border-radius: 10px; padding: 1.5rem; margin-bottom: 2rem;'>
@@ -536,9 +474,7 @@ def mostrar_perfil(username, backend_url):
         
         st.markdown("<hr style='margin: 2rem 0;'/>", unsafe_allow_html=True)
 
-    # ------------------------------------------------------------
-    # CABECERA DEL PERFIL (Avatar, Racha, y Feedback)
-    # ------------------------------------------------------------
+    # --- CABECERA PERFIL ---
     c1, c2, c3 = st.columns([1, 2, 1])
     
     with c2:
@@ -550,13 +486,12 @@ def mostrar_perfil(username, backend_url):
             with st.expander("Cambiar Avatar", expanded=False):
                 avatares = ['🐼', '🦊', '🐱', '🐶', '🦄', '🐸', '🦉', '🐙', '🦁', '🐻', '🐵', '🐮']
                 idx = avatares.index(perfil.get("avatar")) if perfil.get("avatar") in avatares else 0
-                nuevo_avatar = st.selectbox("Elige tu nuevo avatar", avatares, index=idx)
+                nuevo_avatar = st.selectbox("Elige tu nuevo avatar", avatares, index=idx, key="sel_avatar_profile")
                 if st.button("Guardar Avatar", use_container_width=True):
                     requests.post(f"{backend_url}/users/{username}/avatar", data={"avatar": nuevo_avatar})
                     st.session_state["mi_avatar"] = nuevo_avatar  
                     st.rerun()
 
-    # ZONA TOP DERECHA: Mostrar feedback al alumno con animación flotante
     with c3:
         active_fb = perfil.get("active_feedback")
         if active_fb and active_fb != "":
@@ -566,20 +501,10 @@ def mostrar_perfil(username, backend_url):
                 <div style="background: #ef4444; color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; margin-bottom: -5px; z-index: 10;">Mensaje del Profe</div>
                 <img src='{fb_b64}' style='width: 120px; filter: drop-shadow(0px 10px 15px rgba(0,0,0,0.2));'>
             </div>
-            <style>
-            @keyframes floatSticker {{
-                0% {{ transform: translateY(0px) rotate(0deg); }}
-                50% {{ transform: translateY(-10px) rotate(3deg); }}
-                100% {{ transform: translateY(0px) rotate(0deg); }}
-            }}
-            </style>
+            <style>@keyframes floatSticker {{ 0% {{ transform: translateY(0px) rotate(0deg); }} 50% {{ transform: translateY(-10px) rotate(3deg); }} 100% {{ transform: translateY(0px) rotate(0deg); }} }}</style>
             """, unsafe_allow_html=True)
 
     st.markdown("<hr style='margin: 2rem 0;'/>", unsafe_allow_html=True)
-    
-    # ------------------------------------------------------------
-    # MÉTRICAS Y NIVELES (CÓDIGO ORIGINAL INTACTO)
-    # ------------------------------------------------------------
     if "__cache_overview" not in st.session_state or "__cache_documents" not in st.session_state:
         try:
             cargar_metricas(username, backend_url)
@@ -626,36 +551,10 @@ def mostrar_perfil(username, backend_url):
     except Exception as e:
         st.warning(f"No se pudieron cargar los niveles: {e}")
         
-    st.markdown(
-        """
-        <style>
-        div[data-testid="stButton"] > button[kind="secondary"],
-        div[data-testid="stButton"] > button#btn_refresh_metrics {
-            background-color: #f0f0f0 !important;
-            color: #333 !important;
-            border: 1px solid #d1d5db !important;
-            font-weight: 600 !important;
-            transition: background-color 0.2s ease;
-        }
-        div[data-testid="stButton"] > button#btn_refresh_metrics:hover {
-            background-color: #e5e5e5 !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
     if st.button("Actualizar métricas", key="btn_refresh_metrics", use_container_width=True):
         cargar_metricas(username, backend_url)
         for d in st.session_state.get("__cache_documents", []):
             _fetch_and_cache_doc_metrics(backend_url, d["id"])
-
-    st.markdown("""
-    <style>
-    div[data-testid="stMetric"] { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center !important; }
-    div[data-testid="stMetricLabel"] { text-align: center !important; justify-content: center !important; align-items: center !important; font-weight: 600 !important; }
-    div[data-testid="stMetricValue"] { text-align: center !important; justify-content: center !important; align-items: center !important; font-weight: 500 !important; color: #000 !important; font-size: 0.97rem !important; }
-    </style>
-    """, unsafe_allow_html=True)
 
     ov = st.session_state.get("__cache_overview")
     docs = st.session_state.get("__cache_documents")
@@ -671,29 +570,15 @@ def mostrar_perfil(username, backend_url):
         avg_secs = float(ov.get("avg_session_seconds", 0.0) or 0.0)
         c4.metric("⏱️ Tiempo medio por sesión", pretty_hms(avg_secs))
 
-        c5, c6 = st.columns(2, gap="medium")
-        c5.metric("📈 % docs con 'tú' impersonal", f"{float(ov.get('docs_with_tu_percent', 0.0) or 0.0):.1f}%")
-        c6.metric("🛠️ % docs sin cambios", f"{float(ov.get('docs_no_changes_percent', 0.0) or 0.0):.1f}%")
-
         st.markdown("<h2 class='h-section'>📊 Promedios por métrica (histórico)</h2>", unsafe_allow_html=True)
         avg_metrics = ov.get("avg_metrics", {})
         if avg_metrics:
-            st.markdown("""
-            <style>
-            .metric-row { padding: 0.4rem 0.8rem; border-radius: 0.4rem; margin-bottom: 0.25rem; }
-            .metric-row:nth-child(odd) { background-color: #f9fafb; }
-            .metric-row:nth-child(even) { background-color: #ffffff; }
-            .metric-label { font-weight: 400; color: #374151; }
-            .metric-value { float: right; font-weight: 500; color: #000000; }
-            </style>
-            """, unsafe_allow_html=True)
-
             html_rows = ""
             for key in SHOW_KEYS:
                 if key in avg_metrics:
                     label = PRETTY.get(key, key)
                     value = pretty_int(round(avg_metrics[key], 2))
-                    html_rows += f"<div class='metric-row'><span class='metric-label'>{label}</span><span class='metric-value'>{value}</span></div>"
+                    html_rows += f"<div style='padding: 0.4rem 0.8rem; border-radius: 0.4rem; background-color: #f9fafb; margin-bottom: 0.25rem;'><span style='font-weight: 400; color: #374151;'>{label}</span><span style='float: right; font-weight: 500; color: #000000;'>{value}</span></div>"
             st.markdown(html_rows, unsafe_allow_html=True)
         else:
             st.info("Sin métricas históricas todavía.")
@@ -720,14 +605,8 @@ def mostrar_perfil(username, backend_url):
                         .encode(
                             x=alt.X("dia_semana:N", title="Día de la semana", sort=["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"]),
                             y=alt.Y("minutos:Q", title="Minutos totales"),
-                            color=alt.Color("categoria:N", title="Nivel de actividad",
-                                            scale=alt.Scale(domain=order,
-                                                            range=["#ef4444","#f97316","#facc15","#22c55e","#3b82f6"])),
-                            tooltip=[
-                                alt.Tooltip("day:T", title="Fecha"),
-                                alt.Tooltip("minutos:Q", title="Minutos totales", format=".1f"),
-                                alt.Tooltip("categoria:N", title="Nivel")
-                            ],
+                            color=alt.Color("categoria:N", title="Nivel de actividad", scale=alt.Scale(domain=order, range=["#ef4444","#f97316","#facc15","#22c55e","#3b82f6"])),
+                            tooltip=[alt.Tooltip("day:T", title="Fecha"), alt.Tooltip("minutos:Q", title="Minutos totales", format=".1f"), alt.Tooltip("categoria:N", title="Nivel")],
                         )
                         .properties(height=300, width="container")
                     )
@@ -740,7 +619,7 @@ def mostrar_perfil(username, backend_url):
             st.warning(f"Error al obtener la actividad: {e}")
             
     st.markdown("<h2 class='h-section'>📈 Evolución de errores ortográficos</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='font-size: 0.95rem; color: #555;'>Muestra el % de error en los últimos 15 textos para cada categoría.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size: 0.95rem; color: #555;'>Muestra el % de error en los últimos 15 textos para cada categoría (solo se cuentan los textos que contenían palabras con riesgo de fallar).</p>", unsafe_allow_html=True)
 
     try:
         resp_prog = requests.get(f"{backend_url}/users/{username}/progress", timeout=10)
@@ -749,7 +628,6 @@ def mostrar_perfil(username, backend_url):
             if prog_data:
                 import pandas as pd
                 df_prog = pd.DataFrame(prog_data)
-                
                 chart_prog = (
                     alt.Chart(df_prog)
                     .mark_line(point=True, strokeWidth=3, size=80)
@@ -757,24 +635,21 @@ def mostrar_perfil(username, backend_url):
                         x=alt.X("doc_index:O", title="Textos evaluados cronológicamente (1 = más antiguo)"),
                         y=alt.Y("porcentaje_error:Q", title="% de Error cometido", scale=alt.Scale(domain=[0, 100])),
                         color=alt.Color("categoria:N", title="Categoría"),
-                        tooltip=[
-                            alt.Tooltip("categoria:N", title="Regla"),
-                            alt.Tooltip("porcentaje_error:Q", title="% de Error", format=".1f"),
-                            alt.Tooltip("fecha:T", title="Fecha")
-                        ]
+                        tooltip=[alt.Tooltip("categoria:N", title="Regla"), alt.Tooltip("porcentaje_error:Q", title="% de Error", format=".1f"), alt.Tooltip("fecha:T", title="Fecha")]
                     )
                     .properties(height=350, width="container")
                     .interactive()
                 )
                 st.altair_chart(chart_prog, use_container_width=True)
             else:
-                st.info("Aún no tienes suficientes datos procesados.")
+                st.info("Aún no tienes suficientes datos procesados para ver la evolución de las reglas ortográficas.")
         else:
             st.warning("No se pudo obtener el progreso histórico.")
     except Exception as e:
         st.warning(f"Error cargando la gráfica de progreso: {e}")
         
     st.markdown("<h1 style='text-align: center; margin-bottom: 0.5rem;'>🏅 Vitrina de Insignias</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #6b7280; font-size: 1.1rem; margin-bottom: 2rem;'>Mantén tu nivel de error por debajo del 10% durante 15 textos seguidos para desbloquearlas.</p>", unsafe_allow_html=True)
     
     try:
         r_badges = requests.get(f"{backend_url}/users/{username}/badges", timeout=10)
@@ -874,34 +749,10 @@ def mostrar_perfil(username, backend_url):
                     st.info("Solo el alumno puede eliminar sus documentos.")
     else:
         st.info("No hay documentos aún.")
-def render_status(backend_url):
-    if "modelo_listo" not in st.session_state:
-        st.session_state["modelo_listo"] = False
-    if "status_progress" not in st.session_state:
-        st.session_state["status_progress"] = 0
-    if "status_message" not in st.session_state:
-        st.session_state["status_message"] = "⚡ Preparando…"
 
-    st.progress(st.session_state["status_progress"])
-
-    if st.session_state["modelo_listo"]:
-        st.success("✅ Modelo cargado y listo")
-        return
-
-    estado = fetch_status(backend_url, timeout=5)
-    st.session_state["modelo_listo"]  = bool(estado.get("modelo_listo"))
-    st.session_state["status_progress"] = int(estado.get("progress", 0))
-    st.session_state["status_message"]  = estado.get("message", "")
-    st.info(st.session_state["status_message"] or "⚡ Cargando…")
-
-    if st.button("🔄 Actualizar estado", key="btn_status_refresh_main", use_container_width=True):
-        estado = fetch_status(backend_url, timeout=5)
-        st.session_state["modelo_listo"]  = bool(estado.get("modelo_listo"))
-        st.session_state["status_progress"] = int(estado.get("progress", 0))
-        st.session_state["status_message"]  = estado.get("message", "")
-
-    st.stop()
-    
+# =========================
+# VISTA GIMNASIO Y REPASO
+# =========================
 def mostrar_repaso():
     st.markdown("""
     <style>
@@ -991,10 +842,12 @@ def mostrar_gimnasio(backend_url, username):
         st.session_state.gym_preguntas = []
         st.session_state.gym_index = 0
         st.session_state.gym_score = 0
+        st.session_state.gym_categoria = "REMIX"
 
     if st.session_state.gym_estado == "configuracion":
         st.markdown("<h3 class='h-section'>1. Elige tu entrenamiento</h3>", unsafe_allow_html=True)
-        categoria = st.selectbox("Categoría a repasar:", ["REMIX", "B_V", "G_J", "Y_LL", "C_Z", "H", "TILDES"])
+        # ⚠️ SOLUCIÓN BUG ID: key añadida al selectbox
+        categoria = st.selectbox("Categoría a repasar:", ["REMIX", "B_V", "G_J", "Y_LL", "C_Z", "H", "TILDES"], key="gym_cat_select")
         
         if st.button("🚀 ¡Empezar Entrenamiento!", use_container_width=True):
             nivel_dificultad = "facil" 
@@ -1006,7 +859,7 @@ def mostrar_gimnasio(backend_url, username):
                     nivel_usuario = niveles_data.get(llave_nivel, "")
                     if "Avanzado" in nivel_usuario: nivel_dificultad = "dificil"
                     elif "Medio" in nivel_usuario: nivel_dificultad = "intermedio"
-            except Exception as e: pass 
+            except Exception: pass 
             
             st.toast(f"Adaptando gimnasio a tu nivel: {nivel_dificultad.upper()}", icon="🧠")
 
@@ -1025,6 +878,7 @@ def mostrar_gimnasio(backend_url, username):
             st.session_state.gym_preguntas = preguntas[:10]
             st.session_state.gym_index = 0
             st.session_state.gym_score = 0
+            st.session_state.gym_categoria = categoria
             
             if len(st.session_state.gym_preguntas) > 0:
                 st.session_state.gym_estado = "jugando"
@@ -1049,7 +903,8 @@ def mostrar_gimnasio(backend_url, username):
                     st.toast("¡Correcto! 🎉", icon="✅")
                     st.session_state.gym_score += 1
                     if "backend_id" in pregunta_actual:
-                        requests.post(f"{backend_url}/ejercicios/{pregunta_actual['backend_id']}/acierto", timeout=5)
+                        try: requests.post(f"{backend_url}/ejercicios/{pregunta_actual['backend_id']}/acierto", timeout=5)
+                        except: pass
                 else:
                     st.toast(f"¡Oops! La correcta era '{pregunta_actual['palabra']}'", icon="❌")
                 
@@ -1063,15 +918,70 @@ def mostrar_gimnasio(backend_url, username):
             st.rerun()
 
     elif st.session_state.gym_estado == "resultados":
-        st.balloons()
-        st.markdown("<div class='gym-card'>", unsafe_allow_html=True)
-        st.markdown("<h2 style='color: #1e3a8a;'>¡Entrenamiento Completado! 🏆</h2>", unsafe_allow_html=True)
-        st.markdown(f"<h1>{st.session_state.gym_score} / {len(st.session_state.gym_preguntas)}</h1>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        score = st.session_state.gym_score
+        total = len(st.session_state.gym_preguntas)
+        porcentaje_acierto = (score / total) * 100 if total > 0 else 100
         
-        if st.button("Volver al Gimnasio", use_container_width=True):
-            st.session_state.gym_estado = "configuracion"
-            st.rerun()
+        # ⚠️ SOLUCIÓN TEORÍA: Si acierta más del 60%, Aprueba. Si no, le mandamos a la teoría.
+        if porcentaje_acierto >= 60:
+            st.balloons()
+            st.markdown("<div class='gym-card'>", unsafe_allow_html=True)
+            st.markdown("<h2 style='color: #1e3a8a;'>¡Entrenamiento Completado! 🏆</h2>", unsafe_allow_html=True)
+            st.markdown(f"<h1>{score} / {total}</h1>", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+            
+            if st.button("Volver al Gimnasio", use_container_width=True):
+                st.session_state.gym_estado = "configuracion"
+                st.rerun()
+        else:
+            st.markdown("<div class='gym-card' style='background: linear-gradient(135deg, #fee2e2, #fecaca);'>", unsafe_allow_html=True)
+            st.markdown("<h2 style='color: #b91c1c;'>¡Sigue practicando! 💪</h2>", unsafe_allow_html=True)
+            st.markdown(f"<h1 style='color: #991b1b;'>{score} / {total}</h1>", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+            
+            st.info("💡 Hemos detectado varios fallos. ¡Un pequeño repaso a la teoría te vendrá genial para dominar estas palabras!")
+            
+            c1, c2 = st.columns(2)
+            with c1:
+                if st.button("Volver al Gimnasio", use_container_width=True):
+                    st.session_state.gym_estado = "configuracion"
+                    st.rerun()
+            with c2:
+                if st.button("📖 Repasar Teoría", use_container_width=True, type="primary"):
+                    mapa_teoria = {"B_V": 0, "G_J": 1, "Y_LL": 2, "C_Z": 3, "H": 4, "TILDES": 5}
+                    cat_actual = st.session_state.gym_categoria
+                    st.session_state.repaso_index = mapa_teoria.get(cat_actual, 0)
+                    st.session_state.nav_actual = "Repaso"
+                    st.session_state.gym_estado = "configuracion"
+                    st.rerun()
+
+def render_status(backend_url):
+    if "modelo_listo" not in st.session_state:
+        st.session_state["modelo_listo"] = False
+    if "status_progress" not in st.session_state:
+        st.session_state["status_progress"] = 0
+    if "status_message" not in st.session_state:
+        st.session_state["status_message"] = "⚡ Preparando…"
+
+    st.progress(st.session_state["status_progress"])
+
+    if st.session_state["modelo_listo"]:
+        st.success("✅ Modelo cargado y listo")
+        return
+
+    estado = fetch_status(backend_url, timeout=5)
+    st.session_state["modelo_listo"]  = bool(estado.get("modelo_listo"))
+    st.session_state["status_progress"] = int(estado.get("progress", 0))
+    st.session_state["status_message"]  = estado.get("message", "")
+    st.info(st.session_state["status_message"] or "⚡ Cargando…")
+
+    if st.button("🔄 Actualizar estado", key="btn_status_refresh_main", use_container_width=True):
+        estado = fetch_status(backend_url, timeout=5)
+        st.session_state["modelo_listo"]  = bool(estado.get("modelo_listo"))
+        st.session_state["status_progress"] = int(estado.get("progress", 0))
+        st.session_state["status_message"]  = estado.get("message", "")
+
+    st.stop()
 
 # =========================
 # Main app
