@@ -97,6 +97,17 @@ CREATE TABLE IF NOT EXISTS user_profiles(
   active_feedback TEXT,
   FOREIGN KEY(user_id) REFERENCES users(id)
 );
+
+CREATE TABLE IF NOT EXISTS gym_stats(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  categoria TEXT NOT NULL,
+  nivel TEXT NOT NULL,
+  score INTEGER,
+  total INTEGER,
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY(user_id) REFERENCES users(id)
+);
 """
 
 def init_db():
@@ -691,3 +702,23 @@ def get_class_overview_metrics():
         
         avg_dict = {r["metric_name"]: float(r["avg_value"]) for r in avg_metrics}
         return {"total_docs": total_docs, "total_students": total_users, "avg_metrics": avg_dict}
+    
+def save_gym_result(username: str, categoria: str, nivel: str, score: int, total: int):
+    """Guarda el resultado de una partida del gimnasio."""
+    uid = get_user_id(username)
+    if uid:
+        with db() as con:
+            con.execute("INSERT INTO gym_stats (user_id, categoria, nivel, score, total) VALUES (?, ?, ?, ?, ?)",
+                        (uid, categoria, nivel, score, total))
+
+def get_admin_gym_stats():
+    """Calcula el % de aciertos por cada nivel de dificultad."""
+    with db() as con:
+        rows = con.execute("""
+            SELECT nivel,
+                   AVG(CAST(score AS REAL) / total) * 100 as avg_score,
+                   COUNT(*) as sessions
+            FROM gym_stats
+            GROUP BY nivel
+        """).fetchall()
+        return [dict(r) for r in rows]

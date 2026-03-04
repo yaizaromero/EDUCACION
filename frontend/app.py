@@ -400,27 +400,55 @@ def mostrar_admin_metricas(backend_url):
     c2.metric("📄 Total de Documentos Analizados", data.get("total_docs", 0))
     
     st.markdown("<div class='spacer-1cm'></div>", unsafe_allow_html=True)
-    avg_metrics = data.get("avg_metrics", {})
-    if avg_metrics:
-        st.markdown("<h3 class='h-section'>Tasa media de errores por regla</h3>", unsafe_allow_html=True)
-        chart_data = []
-        for k, v in avg_metrics.items():
-            if k.startswith("errores_") and k != "errores_otros":
-                cat = k.replace("errores_", "").upper()
-                chart_data.append({"Regla": cat, "Errores Medios": v})
-        
-        if chart_data:
-            import pandas as pd
-            import altair as alt
-            df = pd.DataFrame(chart_data)
-            chart = alt.Chart(df).mark_bar(color="#3b82f6", cornerRadiusTopLeft=8, cornerRadiusTopRight=8).encode(
-                x=alt.X("Regla:N", sort="-y", title="Regla Ortográfica"),
-                y=alt.Y("Errores Medios:Q", title="Promedio de errores por documento"),
-                tooltip=[alt.Tooltip("Regla:N"), alt.Tooltip("Errores Medios:Q", format=".2f")]
-            ).properties(height=350)
-            st.altair_chart(chart, use_container_width=True)
-    else:
-        st.info("Todavía no hay suficientes datos en la clase para mostrar gráficas.")
+    
+    tab1, tab2 = st.tabs(["📝 Corrector de Textos", "🏋️ Gimnasio Ortográfico"])
+    
+    with tab1:
+        avg_metrics = data.get("avg_metrics", {})
+        if avg_metrics:
+            st.markdown("<h3 class='h-section'>Tasa media de errores por regla</h3>", unsafe_allow_html=True)
+            chart_data = []
+            for k, v in avg_metrics.items():
+                if k.startswith("errores_") and k != "errores_otros":
+                    cat = k.replace("errores_", "").upper()
+                    chart_data.append({"Regla": cat, "Errores Medios": v})
+            
+            if chart_data:
+                import pandas as pd
+                df = pd.DataFrame(chart_data)
+                chart = alt.Chart(df).mark_bar(color="#3b82f6", cornerRadiusTopLeft=8, cornerRadiusTopRight=8).encode(
+                    x=alt.X("Regla:N", sort="-y", title="Regla Ortográfica"),
+                    y=alt.Y("Errores Medios:Q", title="Promedio de errores por documento"),
+                    tooltip=[alt.Tooltip("Regla:N"), alt.Tooltip("Errores Medios:Q", format=".2f")]
+                ).properties(height=350)
+                st.altair_chart(chart, use_container_width=True)
+        else:
+            st.info("Todavía no hay suficientes datos en la clase para mostrar gráficas.")
+
+    with tab2:
+        st.markdown("<h3 class='h-section'>Rendimiento de los alumnos por nivel</h3>", unsafe_allow_html=True)
+        try:
+            r_gym = requests.get(f"{backend_url}/admin/gym_stats", timeout=5)
+            gym_stats = r_gym.json().get("stats", [])
+            if gym_stats:
+                import pandas as pd
+                df_gym = pd.DataFrame(gym_stats)
+                chart_gym = alt.Chart(df_gym).mark_bar(cornerRadiusTopLeft=8, cornerRadiusTopRight=8).encode(
+                    x=alt.X("nivel:N", title="Nivel de Dificultad", sort=["facil", "intermedio", "dificil"]),
+                    y=alt.Y("avg_score:Q", title="% de Acierto Medio", scale=alt.Scale(domain=[0, 100])),
+                    color=alt.Color("nivel:N", scale=alt.Scale(domain=["facil", "intermedio", "dificil"], range=["#22c55e", "#facc15", "#ef4444"]), legend=None),
+                    tooltip=[
+                        alt.Tooltip("nivel:N", title="Nivel"), 
+                        alt.Tooltip("avg_score:Q", title="% Acierto", format=".1f"), 
+                        alt.Tooltip("sessions:Q", title="Partidas jugadas")
+                    ]
+                ).properties(height=350)
+                st.altair_chart(chart_gym, use_container_width=True)
+            else:
+                st.info("Aún no se han jugado partidas en el gimnasio.")
+        except Exception as e:
+            st.warning("No se pudo cargar el rendimiento del gimnasio.")
+
 
 # =========================
 # VISTA DE PERFIL (ALUMNO Y PROFE)
@@ -444,7 +472,6 @@ def mostrar_perfil(username, backend_url):
     titulo = "👤 Mi Perfil" if es_propietario else f"👤 Perfil del Alumno: {username}"
     st.markdown(f"<h1 style='text-align: center; margin-bottom: 2rem;'>{titulo}</h1>", unsafe_allow_html=True)
     
-    # --- PANEL DEL PROFESOR (Pegatinas) ---
     if es_admin:
         st.markdown("""
         <div style='background-color: #f8fafc; border: 2px dashed #3b82f6; border-radius: 10px; padding: 1.5rem; margin-bottom: 2rem;'>
@@ -474,7 +501,6 @@ def mostrar_perfil(username, backend_url):
         
         st.markdown("<hr style='margin: 2rem 0;'/>", unsafe_allow_html=True)
 
-    # --- CABECERA PERFIL ---
     c1, c2, c3 = st.columns([1, 2, 1])
     
     with c2:
@@ -551,10 +577,36 @@ def mostrar_perfil(username, backend_url):
     except Exception as e:
         st.warning(f"No se pudieron cargar los niveles: {e}")
         
+    st.markdown(
+        """
+        <style>
+        div[data-testid="stButton"] > button[kind="secondary"],
+        div[data-testid="stButton"] > button#btn_refresh_metrics {
+            background-color: #f0f0f0 !important;
+            color: #333 !important;
+            border: 1px solid #d1d5db !important;
+            font-weight: 600 !important;
+            transition: background-color 0.2s ease;
+        }
+        div[data-testid="stButton"] > button#btn_refresh_metrics:hover {
+            background-color: #e5e5e5 !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
     if st.button("Actualizar métricas", key="btn_refresh_metrics", use_container_width=True):
         cargar_metricas(username, backend_url)
         for d in st.session_state.get("__cache_documents", []):
             _fetch_and_cache_doc_metrics(backend_url, d["id"])
+
+    st.markdown("""
+    <style>
+    div[data-testid="stMetric"] { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center !important; }
+    div[data-testid="stMetricLabel"] { text-align: center !important; justify-content: center !important; align-items: center !important; font-weight: 600 !important; }
+    div[data-testid="stMetricValue"] { text-align: center !important; justify-content: center !important; align-items: center !important; font-weight: 500 !important; color: #000 !important; font-size: 0.97rem !important; }
+    </style>
+    """, unsafe_allow_html=True)
 
     ov = st.session_state.get("__cache_overview")
     docs = st.session_state.get("__cache_documents")
@@ -569,6 +621,10 @@ def mostrar_perfil(username, backend_url):
         c3.metric("🔁 Inicios de sesión", usage.get("login", {}).get("count", 0))
         avg_secs = float(ov.get("avg_session_seconds", 0.0) or 0.0)
         c4.metric("⏱️ Tiempo medio por sesión", pretty_hms(avg_secs))
+
+        c5, c6 = st.columns(2, gap="medium")
+        c5.metric("📈 % docs con 'tú' impersonal", f"{float(ov.get('docs_with_tu_percent', 0.0) or 0.0):.1f}%")
+        c6.metric("🛠️ % docs sin cambios", f"{float(ov.get('docs_no_changes_percent', 0.0) or 0.0):.1f}%")
 
         st.markdown("<h2 class='h-section'>📊 Promedios por métrica (histórico)</h2>", unsafe_allow_html=True)
         avg_metrics = ov.get("avg_metrics", {})
@@ -751,8 +807,36 @@ def mostrar_perfil(username, backend_url):
         st.info("No hay documentos aún.")
 
 # =========================
-# VISTA GIMNASIO Y REPASO
+# Status
 # =========================
+def render_status(backend_url):
+    if "modelo_listo" not in st.session_state:
+        st.session_state["modelo_listo"] = False
+    if "status_progress" not in st.session_state:
+        st.session_state["status_progress"] = 0
+    if "status_message" not in st.session_state:
+        st.session_state["status_message"] = "⚡ Preparando…"
+
+    st.progress(st.session_state["status_progress"])
+
+    if st.session_state["modelo_listo"]:
+        st.success("✅ Modelo cargado y listo")
+        return
+
+    estado = fetch_status(backend_url, timeout=5)
+    st.session_state["modelo_listo"]  = bool(estado.get("modelo_listo"))
+    st.session_state["status_progress"] = int(estado.get("progress", 0))
+    st.session_state["status_message"]  = estado.get("message", "")
+    st.info(st.session_state["status_message"] or "⚡ Cargando…")
+
+    if st.button("🔄 Actualizar estado", key="btn_status_refresh_main", use_container_width=True):
+        estado = fetch_status(backend_url, timeout=5)
+        st.session_state["modelo_listo"]  = bool(estado.get("modelo_listo"))
+        st.session_state["status_progress"] = int(estado.get("progress", 0))
+        st.session_state["status_message"]  = estado.get("message", "")
+
+    st.stop()
+    
 def mostrar_repaso():
     st.markdown("""
     <style>
@@ -843,10 +927,10 @@ def mostrar_gimnasio(backend_url, username):
         st.session_state.gym_index = 0
         st.session_state.gym_score = 0
         st.session_state.gym_categoria = "REMIX"
+        st.session_state.gym_dificultad = "facil"
 
     if st.session_state.gym_estado == "configuracion":
         st.markdown("<h3 class='h-section'>1. Elige tu entrenamiento</h3>", unsafe_allow_html=True)
-        # ⚠️ SOLUCIÓN BUG ID: key añadida al selectbox
         categoria = st.selectbox("Categoría a repasar:", ["REMIX", "B_V", "G_J", "Y_LL", "C_Z", "H", "TILDES"], key="gym_cat_select")
         
         if st.button("🚀 ¡Empezar Entrenamiento!", use_container_width=True):
@@ -879,6 +963,7 @@ def mostrar_gimnasio(backend_url, username):
             st.session_state.gym_index = 0
             st.session_state.gym_score = 0
             st.session_state.gym_categoria = categoria
+            st.session_state.gym_dificultad = nivel_dificultad
             
             if len(st.session_state.gym_preguntas) > 0:
                 st.session_state.gym_estado = "jugando"
@@ -911,6 +996,16 @@ def mostrar_gimnasio(backend_url, username):
                 st.session_state.gym_index += 1
                 if st.session_state.gym_index >= total_preguntas:
                     st.session_state.gym_estado = "resultados"
+                    
+                    try:
+                        requests.post(f"{backend_url}/users/{username}/gym_result", data={
+                            "categoria": st.session_state.gym_categoria,
+                            "nivel": st.session_state.gym_dificultad,
+                            "score": st.session_state.gym_score,
+                            "total": total_preguntas
+                        }, timeout=5)
+                    except: pass
+                    
                 st.rerun()
 
         if st.button("Abandonar entrenamiento", type="secondary"):
@@ -922,7 +1017,6 @@ def mostrar_gimnasio(backend_url, username):
         total = len(st.session_state.gym_preguntas)
         porcentaje_acierto = (score / total) * 100 if total > 0 else 100
         
-        # ⚠️ SOLUCIÓN TEORÍA: Si acierta más del 60%, Aprueba. Si no, le mandamos a la teoría.
         if porcentaje_acierto >= 60:
             st.balloons()
             st.markdown("<div class='gym-card'>", unsafe_allow_html=True)
@@ -939,7 +1033,7 @@ def mostrar_gimnasio(backend_url, username):
             st.markdown(f"<h1 style='color: #991b1b;'>{score} / {total}</h1>", unsafe_allow_html=True)
             st.markdown("</div>", unsafe_allow_html=True)
             
-            st.info("💡 Hemos detectado varios fallos. ¡Un pequeño repaso a la teoría te vendrá genial para dominar estas palabras!")
+            st.info("💡 Hemos detectado varios fallos. ¡Un pequeño repaso a la teoría te vendrá genial!")
             
             c1, c2 = st.columns(2)
             with c1:
@@ -949,39 +1043,11 @@ def mostrar_gimnasio(backend_url, username):
             with c2:
                 if st.button("📖 Repasar Teoría", use_container_width=True, type="primary"):
                     mapa_teoria = {"B_V": 0, "G_J": 1, "Y_LL": 2, "C_Z": 3, "H": 4, "TILDES": 5}
-                    cat_actual = st.session_state.gym_categoria
+                    cat_actual = st.session_state.get("gym_categoria", "B_V")
                     st.session_state.repaso_index = mapa_teoria.get(cat_actual, 0)
                     st.session_state.nav_actual = "Repaso"
                     st.session_state.gym_estado = "configuracion"
                     st.rerun()
-
-def render_status(backend_url):
-    if "modelo_listo" not in st.session_state:
-        st.session_state["modelo_listo"] = False
-    if "status_progress" not in st.session_state:
-        st.session_state["status_progress"] = 0
-    if "status_message" not in st.session_state:
-        st.session_state["status_message"] = "⚡ Preparando…"
-
-    st.progress(st.session_state["status_progress"])
-
-    if st.session_state["modelo_listo"]:
-        st.success("✅ Modelo cargado y listo")
-        return
-
-    estado = fetch_status(backend_url, timeout=5)
-    st.session_state["modelo_listo"]  = bool(estado.get("modelo_listo"))
-    st.session_state["status_progress"] = int(estado.get("progress", 0))
-    st.session_state["status_message"]  = estado.get("message", "")
-    st.info(st.session_state["status_message"] or "⚡ Cargando…")
-
-    if st.button("🔄 Actualizar estado", key="btn_status_refresh_main", use_container_width=True):
-        estado = fetch_status(backend_url, timeout=5)
-        st.session_state["modelo_listo"]  = bool(estado.get("modelo_listo"))
-        st.session_state["status_progress"] = int(estado.get("progress", 0))
-        st.session_state["status_message"]  = estado.get("message", "")
-
-    st.stop()
 
 # =========================
 # Main app
@@ -1015,9 +1081,7 @@ def main_app():
         """, unsafe_allow_html=True)
 
         if es_admin:
-            # ---------------------------------------------------------
             # SIDEBAR PROFESOR (ADMIN)
-            # ---------------------------------------------------------
             c_ava, c_name = st.sidebar.columns([1.2, 2.5], gap="small")
             with c_ava:
                 st.markdown("<div style='font-size: 3.5rem; text-align: center; height: 85px; display: flex; align-items: center; justify-content: center;'>👨‍🏫</div>", unsafe_allow_html=True)
@@ -1038,9 +1102,7 @@ def main_app():
                     st.rerun()
 
         else:
-            # ---------------------------------------------------------
             # SIDEBAR ALUMNO (NORMAL)
-            # ---------------------------------------------------------
             st.markdown("""
             <style>
             [data-testid="stSidebar"] [data-testid="column"]:nth-child(1) div.stButton button {
@@ -1092,7 +1154,7 @@ def main_app():
                 clear_current_analysis()
                 st.rerun()
 
-        # Botón de Cerrar Sesión para AMBOS (Profesor y Alumno)
+        # Botón de Cerrar Sesión
         if st.sidebar.button("🔚 Cerrar sesión", use_container_width=True, key="btn_cerrar"):
             try: requests.post(f"{backend_url}/users/logout", data={"username": usuario}, timeout=5)
             except: pass
@@ -1117,9 +1179,8 @@ def main_app():
             st.rerun()
 
     # ==========================================
-    # LÓGICA DE RUTAS Y FORMULARIOS
+    # LÓGICA DE RUTAS
     # ==========================================
-    
     if not st.session_state.get("logged_in", False):
         st.title("📝 PALABRIA")
         if st.session_state.get("show_login", False):
@@ -1135,7 +1196,6 @@ def main_app():
     modo_app = st.session_state.get("nav_actual")
     es_admin = (st.session_state['usuario'] == 'admin')
     
-    # Rutas para el Profesor
     if es_admin:
         if modo_app == "Alumnos":
             mostrar_admin_alumnos(backend_url)
@@ -1143,7 +1203,6 @@ def main_app():
             mostrar_admin_metricas(backend_url)
         return
         
-    # Rutas para el Alumno Normal
     if modo_app == "Gimnasio":
         mostrar_gimnasio(backend_url, st.session_state["usuario"])
         return 
@@ -1154,7 +1213,6 @@ def main_app():
         mostrar_perfil(st.session_state["usuario"], backend_url)
         return
 
-    # Corrector de Textos (Solo alumnos)
     st.title("📝 PALABRIA - Corrector de Textos")
 
     if "load_disparado" not in st.session_state:
@@ -1182,6 +1240,13 @@ def main_app():
     modo_entrada = st.radio(" ", ["Subir PDF", "Escribir texto"], horizontal=True, label_visibility="collapsed")
 
     texto_plano = uploaded_file = file_bytes = digest = None
+
+    if "last_input_digest" not in st.session_state:
+        st.session_state["last_input_digest"] = None
+    if "last_doc_id" not in st.session_state:
+        st.session_state["last_doc_id"] = None
+    if "last_analysis" not in st.session_state:
+        st.session_state["last_analysis"] = None
 
     if modo_entrada == "Subir PDF":
         st.markdown("<h2 class='h-section'>Sube tu PDF</h2>", unsafe_allow_html=True)

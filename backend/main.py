@@ -32,7 +32,8 @@ from backend.db import (
     get_user_badges,
     update_user_streak, get_user_profile, update_user_avatar,
     get_all_students_info, get_class_overview_metrics,
-    set_user_feedback
+    set_user_feedback,
+    save_gym_result, get_admin_gym_stats
 )
 
 app = FastAPI(title="PALABRIA Backend")
@@ -358,3 +359,12 @@ def set_feedback_endpoint(username: str, sticker: str = Form(...)):
         return {"ok": True}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+    
+@app.post("/users/{username}/gym_result")
+def api_save_gym_result(username: str, categoria: str = Form(...), nivel: str = Form(...), score: int = Form(...), total: int = Form(...)):
+    save_gym_result(username, categoria, nivel, score, total)
+    return {"ok": True}
+
+@app.get("/admin/gym_stats")
+def api_admin_gym_stats():
+    return {"ok": True, "stats": get_admin_gym_stats()}
