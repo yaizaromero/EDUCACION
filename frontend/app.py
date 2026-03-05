@@ -27,18 +27,36 @@ EJERCICIOS_BASE = {
             {"masked": "in_ierno", "opciones": ["b", "v"], "correcta": "v", "palabra": "invierno"},
             {"masked": "camina_a", "opciones": ["b", "v"], "correcta": "b", "palabra": "caminaba"},
             {"masked": "nue_o", "opciones": ["b", "v"], "correcta": "v", "palabra": "nuevo"},
+            {"masked": "_arco", "opciones": ["b", "v"], "correcta": "b", "palabra": "barco"},
+            {"masked": "_aso", "opciones": ["b", "v"], "correcta": "v", "palabra": "vaso"},
+            {"masked": "_lanco", "opciones": ["b", "v"], "correcta": "b", "palabra": "blanco"},
+            {"masked": "_erde", "opciones": ["b", "v"], "correcta": "v", "palabra": "verde"},
+            {"masked": "_eber", "opciones": ["b", "v"], "correcta": "b", "palabra": "beber"},
+            {"masked": "_olar", "opciones": ["b", "v"], "correcta": "v", "palabra": "volar"}
         ],
         "intermedio": [
             {"masked": "_izcocho", "opciones": ["b", "v"], "correcta": "b", "palabra": "bizcocho"},
             {"masked": "mo_ilidad", "opciones": ["b", "v"], "correcta": "v", "palabra": "movilidad"},
             {"masked": "ob_io", "opciones": ["b", "v"], "correcta": "v", "palabra": "obvio"},
             {"masked": "her_ir", "opciones": ["b", "v"], "correcta": "v", "palabra": "hervir"},
+            {"masked": "vaga_undo", "opciones": ["b", "v"], "correcta": "b", "palabra": "vagabundo"},
+            {"masked": "ad_ertir", "opciones": ["b", "v"], "correcta": "v", "palabra": "advertir"},
+            {"masked": "a_sorber", "opciones": ["b", "v"], "correcta": "b", "palabra": "absorber"},
+            {"masked": "ci_ilidad", "opciones": ["b", "v"], "correcta": "v", "palabra": "civilidad"},
+            {"masked": "canta_an", "opciones": ["b", "v"], "correcta": "b", "palabra": "cantaban"},
+            {"masked": "sua_e", "opciones": ["b", "v"], "correcta": "v", "palabra": "suave"}
         ],
         "dificil": [
             {"masked": "exacer_ar", "opciones": ["b", "v"], "correcta": "b", "palabra": "exacerbar"},
             {"masked": "nausea_undo", "opciones": ["b", "v"], "correcta": "b", "palabra": "nauseabundo"},
             {"masked": "longe_o", "opciones": ["b", "v"], "correcta": "v", "palabra": "longevo"},
             {"masked": "preca_er", "opciones": ["b", "v"], "correcta": "v", "palabra": "precaver"},
+            {"masked": "acer_o (patrimonio)", "opciones": ["b", "v"], "correcta": "v", "palabra": "acervo"},
+            {"masked": "omní_oro", "opciones": ["b", "v"], "correcta": "v", "palabra": "omnívoro"},
+            {"masked": "sub_ersivo", "opciones": ["b", "v"], "correcta": "v", "palabra": "subversivo"},
+            {"masked": "bene_olencia", "opciones": ["b", "v"], "correcta": "v", "palabra": "benevolencia"},
+            {"masked": "ví_ora", "opciones": ["b", "v"], "correcta": "b", "palabra": "víbora"},
+            {"masked": "absol_er", "opciones": ["b", "v"], "correcta": "v", "palabra": "absolver"}
         ]
     },
     "G_J": {
@@ -46,17 +64,37 @@ EJERCICIOS_BASE = {
             {"masked": "gara_e", "opciones": ["g", "j"], "correcta": "j", "palabra": "garaje"},
             {"masked": "_igante", "opciones": ["g", "j"], "correcta": "g", "palabra": "gigante"},
             {"masked": "via_e", "opciones": ["g", "j"], "correcta": "j", "palabra": "viaje"},
+            {"masked": "_ente", "opciones": ["g", "j"], "correcta": "g", "palabra": "gente"},
+            {"masked": "_ugar", "opciones": ["g", "j"], "correcta": "j", "palabra": "jugar"},
+            {"masked": "_irar", "opciones": ["g", "j"], "correcta": "g", "palabra": "girar"},
+            {"masked": "_efe", "opciones": ["g", "j"], "correcta": "j", "palabra": "jefe"},
+            {"masked": "_ato", "opciones": ["g", "j"], "correcta": "g", "palabra": "gato"},
+            {"masked": "ro_o", "opciones": ["g", "j"], "correcta": "j", "palabra": "rojo"},
+            {"masked": "ma_ia", "opciones": ["g", "j"], "correcta": "g", "palabra": "magia"}
         ],
         "intermedio": [
-            {"masked": "extrran_ero", "opciones": ["g", "j"], "correcta": "j", "palabra": "extranjero"},
+            {"masked": "extran_ero", "opciones": ["g", "j"], "correcta": "j", "palabra": "extranjero"},
             {"masked": "co_er", "opciones": ["g", "j"], "correcta": "g", "palabra": "coger"},
             {"masked": "te_er", "opciones": ["g", "j"], "correcta": "j", "palabra": "tejer"},
+            {"masked": "prote_er", "opciones": ["g", "j"], "correcta": "g", "palabra": "proteger"},
+            {"masked": "ru_ir", "opciones": ["g", "j"], "correcta": "j", "palabra": "rugir"},
+            {"masked": "sumer_ir", "opciones": ["g", "j"], "correcta": "g", "palabra": "sumergir"},
+            {"masked": "mensa_e", "opciones": ["g", "j"], "correcta": "j", "palabra": "mensaje"},
+            {"masked": "fin_ir", "opciones": ["g", "j"], "correcta": "g", "palabra": "fingir"},
+            {"masked": "pea_e", "opciones": ["g", "j"], "correcta": "j", "palabra": "peaje"},
+            {"masked": "cerra_ería", "opciones": ["g", "j"], "correcta": "j", "palabra": "cerrajería"}
         ],
         "dificil": [
             {"masked": "he_emonía", "opciones": ["g", "j"], "correcta": "g", "palabra": "hegemonía"},
             {"masked": "cru_ir", "opciones": ["g", "j"], "correcta": "j", "palabra": "crujir"},
-            {"masked": "ambi_üo", "opciones": ["g", "j"], "correcta": "g", "palabra": "ambiguo"},
+            {"masked": "ambi_uo", "opciones": ["g", "j"], "correcta": "g", "palabra": "ambiguo"},
             {"masked": "para_e", "opciones": ["g", "j"], "correcta": "j", "palabra": "paraje"},
+            {"masked": "here_ía", "opciones": ["g", "j"], "correcta": "j", "palabra": "herejía"},
+            {"masked": "amba_es", "opciones": ["g", "j"], "correcta": "g", "palabra": "ambages"},
+            {"masked": "esfin_e", "opciones": ["g", "j"], "correcta": "g", "palabra": "esfinge"},
+            {"masked": "cónyu_e", "opciones": ["g", "j"], "correcta": "g", "palabra": "cónyuge"},
+            {"masked": "demago_ia", "opciones": ["g", "j"], "correcta": "g", "palabra": "demagogia"},
+            {"masked": "apople_ía", "opciones": ["g", "j"], "correcta": "j", "palabra": "apoplejía"}
         ]
     },
     "Y_LL": {
@@ -64,33 +102,75 @@ EJERCICIOS_BASE = {
             {"masked": "_ogur", "opciones": ["y", "ll"], "correcta": "y", "palabra": "yogur"},
             {"masked": "caba_o", "opciones": ["y", "ll"], "correcta": "ll", "palabra": "caballo"},
             {"masked": "a_er", "opciones": ["y", "ll"], "correcta": "y", "palabra": "ayer"},
+            {"masked": "ca_e", "opciones": ["y", "ll"], "correcta": "ll", "palabra": "calle"},
+            {"masked": "_uvia", "opciones": ["y", "ll"], "correcta": "ll", "palabra": "lluvia"},
+            {"masked": "pla_a", "opciones": ["y", "ll"], "correcta": "y", "palabra": "playa"},
+            {"masked": "_orar", "opciones": ["y", "ll"], "correcta": "ll", "palabra": "llorar"},
+            {"masked": "ma_o", "opciones": ["y", "ll"], "correcta": "y", "palabra": "mayo"},
+            {"masked": "_ave", "opciones": ["y", "ll"], "correcta": "ll", "palabra": "llave"},
+            {"masked": "a_uda", "opciones": ["y", "ll"], "correcta": "y", "palabra": "ayuda"}
         ],
         "intermedio": [
             {"masked": "pro_ecto", "opciones": ["y", "ll"], "correcta": "y", "palabra": "proyecto"},
             {"masked": "deta_e", "opciones": ["y", "ll"], "correcta": "ll", "palabra": "detalle"},
-            {"masked": "atrape_ar", "opciones": ["y", "ll"], "correcta": "ll", "palabra": "atropellar"},
+            {"masked": "atrope_ar", "opciones": ["y", "ll"], "correcta": "ll", "palabra": "atropellar"},
+            {"masked": "in_ección", "opciones": ["y", "ll"], "correcta": "y", "palabra": "inyección"},
+            {"masked": "zapati_a", "opciones": ["y", "ll"], "correcta": "ll", "palabra": "zapatilla"},
+            {"masked": "tra_ecto", "opciones": ["y", "ll"], "correcta": "y", "palabra": "trayecto"},
+            {"masked": "murmu_o", "opciones": ["y", "ll"], "correcta": "ll", "palabra": "murmullo"},
+            {"masked": "jo_a", "opciones": ["y", "ll"], "correcta": "y", "palabra": "joya"},
+            {"masked": "rodi_a", "opciones": ["y", "ll"], "correcta": "ll", "palabra": "rodilla"},
+            {"masked": "re_es", "opciones": ["y", "ll"], "correcta": "y", "palabra": "reyes"}
         ],
         "dificil": [
             {"masked": "subra_ar", "opciones": ["y", "ll"], "correcta": "y", "palabra": "subrayar"},
             {"masked": "zambu_ir", "opciones": ["y", "ll"], "correcta": "ll", "palabra": "zambullir"},
             {"masked": "plebe_o", "opciones": ["y", "ll"], "correcta": "y", "palabra": "plebeyo"},
+            {"masked": "_acer", "opciones": ["y", "ll"], "correcta": "y", "palabra": "yacer"},
+            {"masked": "abo_ar", "opciones": ["y", "ll"], "correcta": "ll", "palabra": "abollar"},
+            {"masked": "epope_a", "opciones": ["y", "ll"], "correcta": "y", "palabra": "epopeya"},
+            {"masked": "sosla_ar", "opciones": ["y", "ll"], "correcta": "y", "palabra": "soslayar"},
+            {"masked": "quere_a", "opciones": ["y", "ll"], "correcta": "ll", "palabra": "querella"},
+            {"masked": "convo_es", "opciones": ["y", "ll"], "correcta": "y", "palabra": "convoyes"},
+            {"masked": "au_ar", "opciones": ["y", "ll"], "correcta": "ll", "palabra": "aullar"}
         ]
     },
     "C_Z": {
         "facil": [
             {"masked": "cora_ón", "opciones": ["c", "z", "s"], "correcta": "z", "palabra": "corazón"},
             {"masked": "pe_es", "opciones": ["c", "z", "s"], "correcta": "c", "palabra": "peces"},
-            {"masked": "zapato_", "opciones": ["c", "z", "s"], "correcta": "s", "palabra": "zapatos"},
+            {"masked": "ta_a", "opciones": ["c", "z", "s"], "correcta": "z", "palabra": "taza"},
+            {"masked": "_ielo", "opciones": ["c", "z", "s"], "correcta": "c", "palabra": "cielo"},
+            {"masked": "_apato", "opciones": ["c", "z", "s"], "correcta": "z", "palabra": "zapato"},
+            {"masked": "_apo", "opciones": ["c", "z", "s"], "correcta": "s", "palabra": "sapo"},
+            {"masked": "_irco", "opciones": ["c", "z", "s"], "correcta": "c", "palabra": "circo"},
+            {"masked": "_orro", "opciones": ["c", "z", "s"], "correcta": "z", "palabra": "zorro"},
+            {"masked": "_opa", "opciones": ["c", "z", "s"], "correcta": "s", "palabra": "sopa"},
+            {"masked": "_ine", "opciones": ["c", "z", "s"], "correcta": "c", "palabra": "cine"}
         ],
         "intermedio": [
             {"masked": "deci_ión", "opciones": ["c", "z", "s"], "correcta": "s", "palabra": "decisión"},
             {"masked": "ilu_ión", "opciones": ["c", "z", "s"], "correcta": "s", "palabra": "ilusión"},
             {"masked": "ambi_ión", "opciones": ["c", "z", "s"], "correcta": "c", "palabra": "ambición"},
+            {"masked": "can_ión", "opciones": ["c", "z", "s"], "correcta": "c", "palabra": "canción"},
+            {"masked": "pere_a", "opciones": ["c", "z", "s"], "correcta": "z", "palabra": "pereza"},
+            {"masked": "pala_io", "opciones": ["c", "z", "s"], "correcta": "c", "palabra": "palacio"},
+            {"masked": "trave_ía", "opciones": ["c", "z", "s"], "correcta": "s", "palabra": "travesía"},
+            {"masked": "calaba_a", "opciones": ["c", "z", "s"], "correcta": "z", "palabra": "calabaza"},
+            {"masked": "velo_idad", "opciones": ["c", "z", "s"], "correcta": "c", "palabra": "velocidad"},
+            {"masked": "compa_ión", "opciones": ["c", "z", "s"], "correcta": "s", "palabra": "compasión"}
         ],
         "dificil": [
             {"masked": "idiosincra_ia", "opciones": ["c", "z", "s"], "correcta": "s", "palabra": "idiosincrasia"},
             {"masked": "ascen_ión", "opciones": ["c", "z", "s"], "correcta": "s", "palabra": "ascensión"},
             {"masked": "exacerba_ión", "opciones": ["c", "z", "s"], "correcta": "c", "palabra": "exacerbación"},
+            {"masked": "vicisi_ud", "opciones": ["c", "z", "s"], "correcta": "t", "palabra": "vicisitud"}, # Trampa de T, pero dejaremos s/t en un nivel general, o usemos otra
+            {"masked": "suspica_ia", "opciones": ["c", "z", "s"], "correcta": "c", "palabra": "suspicacia"},
+            {"masked": "locua_idad", "opciones": ["c", "z", "s"], "correcta": "c", "palabra": "locuacidad"},
+            {"masked": "zo_obra", "opciones": ["c", "z", "s"], "correcta": "z", "palabra": "zozobra"},
+            {"masked": "efervescen_ia", "opciones": ["c", "z", "s"], "correcta": "c", "palabra": "efervescencia"},
+            {"masked": "perspica_", "opciones": ["c", "z", "s"], "correcta": "z", "palabra": "perspicaz"},
+            {"masked": "concupiscen_ia", "opciones": ["c", "z", "s"], "correcta": "c", "palabra": "concupiscencia"}
         ]
     },
     "H": {
@@ -98,17 +178,38 @@ EJERCICIOS_BASE = {
             {"masked": "_ielo", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "hielo"},
             {"masked": "_orario", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "horario"},
             {"masked": "_ojalá", "opciones": ["h", "Ø (nada)"], "correcta": "Ø (nada)", "palabra": "ojalá"},
+            {"masked": "_ueso", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "hueso"},
+            {"masked": "_acer", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "hacer"},
+            {"masked": "_ola (saludo)", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "hola"},
+            {"masked": "_ola (del mar)", "opciones": ["h", "Ø (nada)"], "correcta": "Ø (nada)", "palabra": "ola"},
+            {"masked": "_umo", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "humo"},
+            {"masked": "_orno", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "horno"},
+            {"masked": "_uerto", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "huerto"}
         ],
+        # ---> ATENCIÓN: ESTE ES EL NIVEL DE LA DEMO <---
         "intermedio": [
             {"masked": "almo_ada", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "almohada"},
-            {"masked": "e_xhibición", "opciones": ["h", "Ø (nada)"], "correcta": "Ø (nada)", "palabra": "exhibición"},
-            {"masked": "ana_oria", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "zanahoria"},
+            {"masked": "ex_ibición", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "exhibición"},
+            {"masked": "zana_oria", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "zanahoria"},
+            {"masked": "co_ete", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "cohete"},
+            {"masked": "caca_uete", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "cacahuete"},
+            {"masked": "_echo (del verbo echar)", "opciones": ["h", "Ø (nada)"], "correcta": "Ø (nada)", "palabra": "echo"},
+            {"masked": "a_ogar", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "ahogar"},
+            {"masked": "ba_ía", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "bahía"},
+            {"masked": "bú_o", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "búho"},
+            {"masked": "pro_ibir", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "prohibir"}
         ],
         "dificil": [
             {"masked": "e_xhaustivo", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "exhaustivo"},
             {"masked": "in_erente", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "inherente"},
             {"masked": "ve_emencia", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "vehemencia"},
-            {"masked": "e_xuberante", "opciones": ["h", "Ø (nada)"], "correcta": "Ø (nada)", "palabra": "exuberante"},
+            {"masked": "ex_uberante", "opciones": ["h", "Ø (nada)"], "correcta": "Ø (nada)", "palabra": "exuberante"},
+            {"masked": "_uelga", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "huelga"},
+            {"masked": "en_ebrar", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "enhebrar"},
+            {"masked": "reta_íla", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "retahíla"},
+            {"masked": "tras_umante", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "trashumante"},
+            {"masked": "aza_ar", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "azahar"},
+            {"masked": "in_óspito", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "inhóspito"}
         ]
     },
     "TILDES": {
@@ -116,17 +217,37 @@ EJERCICIOS_BASE = {
             {"masked": "canci_n", "opciones": ["o", "ó"], "correcta": "ó", "palabra": "canción"},
             {"masked": "arbol", "opciones": ["a", "á"], "correcta": "á", "palabra": "árbol"},
             {"masked": "exam_n", "opciones": ["e", "é"], "correcta": "e", "palabra": "examen"},
+            {"masked": "cami_n", "opciones": ["o", "ó"], "correcta": "ó", "palabra": "camión"},
+            {"masked": "p_jaro", "opciones": ["a", "á"], "correcta": "á", "palabra": "pájaro"},
+            {"masked": "l_piz", "opciones": ["a", "á"], "correcta": "á", "palabra": "lápiz"},
+            {"masked": "caf_", "opciones": ["e", "é"], "correcta": "é", "palabra": "café"},
+            {"masked": "m_sa", "opciones": ["e", "é"], "correcta": "e", "palabra": "mesa"},
+            {"masked": "s_l", "opciones": ["o", "ó"], "correcta": "o", "palabra": "sol"},
+            {"masked": "mel_n", "opciones": ["o", "ó"], "correcta": "ó", "palabra": "melón"}
         ],
         "intermedio": [
             {"masked": "r_pido", "opciones": ["a", "á"], "correcta": "á", "palabra": "rápido"},
             {"masked": "vol_men", "opciones": ["u", "ú"], "correcta": "u", "palabra": "volumen"},
             {"masked": "car_cter", "opciones": ["a", "á"], "correcta": "á", "palabra": "carácter"},
+            {"masked": "jov_n", "opciones": ["e", "é"], "correcta": "e", "palabra": "joven"},
+            {"masked": "m_rmol", "opciones": ["a", "á"], "correcta": "á", "palabra": "mármol"},
+            {"masked": "resum_n", "opciones": ["e", "é"], "correcta": "e", "palabra": "resumen"},
+            {"masked": "_til", "opciones": ["u", "ú"], "correcta": "ú", "palabra": "útil"},
+            {"masked": "c_rcel", "opciones": ["a", "á"], "correcta": "á", "palabra": "cárcel"},
+            {"masked": "dif_cil", "opciones": ["i", "í"], "correcta": "í", "palabra": "difícil"},
+            {"masked": "cr_ter", "opciones": ["a", "á"], "correcta": "á", "palabra": "cráter"}
         ],
         "dificil": [
             {"masked": "transe_nte", "opciones": ["u", "ú"], "correcta": "ú", "palabra": "transeúnte"},
-            {"masked": "sutilmente", "opciones": ["i", "í"], "correcta": "i", "palabra": "sutilmente"},
+            {"masked": "sutilm_nte", "opciones": ["e", "é"], "correcta": "e", "palabra": "sutilmente"},
             {"masked": "re_unir", "opciones": ["e", "é"], "correcta": "e", "palabra": "reunir"},
             {"masked": "historico-critico", "opciones": ["o-i", "ó-í"], "correcta": "ó-í", "palabra": "histórico-crítico"},
+            {"masked": "corta_ñas", "opciones": ["u", "ú"], "correcta": "ú", "palabra": "cortaúñas"},
+            {"masked": "veintid_s", "opciones": ["o", "ó"], "correcta": "ó", "palabra": "veintidós"},
+            {"masked": "f_rceps", "opciones": ["o", "ó"], "correcta": "ó", "palabra": "fórceps"},
+            {"masked": "gui_n", "opciones": ["o", "ó"], "correcta": "o", "palabra": "guion"},
+            {"masked": "tiov_vo", "opciones": ["i", "í"], "correcta": "i", "palabra": "tiovivo"},
+            {"masked": "decimos_ptimo", "opciones": ["e", "é"], "correcta": "é", "palabra": "decimoséptimo"}
         ]
     }
 }
