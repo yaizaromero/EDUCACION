@@ -614,6 +614,325 @@ def mostrar_perfil(username, backend_url):
                     st.toast(f"Pegatina '{nombres_stickers[i]}' enviada a {username}", icon="✅")
                     st.rerun()
         
+        # EL TRUCO ESTÁ AQUÍ: Comprobamos que no esté vacío y mandamos un ESPACIO " "
+        if perfil.get("active_feedback") and str(perfil.get("active_feedback")).strip() != "":
+            st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
+            if st.button("❌ Quitar feedback actual", use_container_width=True):
+                requests.post(f"{backend_url}/admin/students/{username}/feedback", data={"sticker": " "})
+                st.rerun()
+        
+        st.markdown("<hr style='margin: 2rem 0;'/>", unsafe_allow_html=True)
+
+    c1, c2, c3 = st.columns([1, 2, 1])
+    
+    with c2:
+        st.markdown(f"<div style='font-size: 6rem; text-align: center; line-height: 1;'>{perfil.get('avatar')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<h2 style='text-align: center; margin-top: 0.5rem;'>{username}</h2>", unsafe_allow_html=True)
+        st.markdown(f"<h4 style='text-align: center; color: #f59e0b; margin-top: -10px;'>🔥 Racha actual: {perfil.get('current_streak')} días</h4>", unsafe_allow_html=True)
+        
+        if es_propietario:
+            with st.expander("Cambiar Avatar", expanded=False):
+                avatares = ['🐼', '🦊', '🐱', '🐶', '🦄', '🐸', '🦉', '🐙', '🦁', '🐻', '🐵', '🐮']
+                idx = avatares.index(perfil.get("avatar")) if perfil.get("avatar") in avatares else 0
+                nuevo_avatar = st.selectbox("Elige tu nuevo avatar", avatares, index=idx, key="sel_avatar_profile")
+                if st.button("Guardar Avatar", use_container_width=True):
+                    requests.post(f"{backend_url}/users/{username}/avatar", data={"avatar": nuevo_avatar})
+                    st.session_state["mi_avatar"] = nuevo_avatar  
+                    st.rerun()
+
+    with c3:
+        active_fb = perfil.get("active_feedback")
+        # Y AQUÍ TAMBIÉN: Si es solo un espacio en blanco, lo ignora y no lo dibuja
+        if active_fb and str(active_fb).strip() != "":
+            fb_b64 = get_base64_image(f"frontend/assets/{active_fb}.png")
+            st.markdown(f"""
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; animation: floatSticker 3s ease-in-out infinite;">
+                <div style="background: #ef4444; color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; margin-bottom: -5px; z-index: 10;">Mensaje del Profe</div>
+                <img src='{fb_b64}' style='width: 120px; filter: drop-shadow(0px 10px 15px rgba(0,0,0,0.2));'>
+            </div>
+            <style>@keyframes floatSticker {{ 0% {{ transform: translateY(0px) rotate(0deg); }} 50% {{ transform: translateY(-10px) rotate(3deg); }} 100% {{ transform: translateY(0px) rotate(0deg); }} }}</style>
+            """, unsafe_allow_html=True)
+
+    st.markdown("<hr style='margin: 2rem 0;'/>", unsafe_allow_html=True)
+    if "__cache_overview" not in st.session_state or "__cache_documents" not in st.session_state:
+        try:
+            cargar_metricas(username, backend_url)
+            for d in st.session_state.get("__cache_documents", []):
+                _fetch_and_cache_doc_metrics(backend_url, d["id"])
+        except Exception as e:
+            st.error(f"No se pudieron cargar las métricas: {e}")
+            
+    st.markdown("<h2 class='h-section'>🏆 Tu Nivel Ortográfico</h2>", unsafe_allow_html=True)
+    
+    try:
+        r_niveles = requests.get(f"{backend_url}/users/{username}/levels", timeout=10)
+        if r_niveles.ok:
+            niveles = r_niveles.json().get("niveles", {})
+            if niveles:
+                nivel_gen = niveles.get("nivel_general", "⚪ Sin datos")
+                color_bg = "#f3f4f6"
+                color_border = "#d1d5db"
+                if "Avanzado" in nivel_gen: color_bg, color_border = "#dcfce7", "#22c55e"
+                elif "Medio" in nivel_gen: color_bg, color_border = "#fef08a", "#eab308"
+                elif "Bajo" in nivel_gen: color_bg, color_border = "#fee2e2", "#ef4444"
+
+                st.markdown(f"""
+                <div style='text-align: center; padding: 1.5rem; background: {color_bg}; border-radius: 15px; border: 2px solid {color_border}; margin-bottom: 1.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.05);'>
+                    <h3 style='margin:0; color: #374151; font-weight: 600;'>Nivel General Ortográfico</h3>
+                    <h1 style='margin:0; font-size: 2.5rem; color: #111827;'>{nivel_gen}</h1>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                st.markdown("<p style='text-align: center; font-weight: 600;'>Desglose por categoría:</p>", unsafe_allow_html=True)
+                c1, c2, c3 = st.columns(3)
+                c1.metric("B / V", niveles.get("nivel_b_v", "⚪ Sin datos"))
+                c2.metric("G / J", niveles.get("nivel_g_j", "⚪ Sin datos"))
+                c3.metric("Y / LL", niveles.get("nivel_y_ll", "⚪ Sin datos"))
+                
+                c4, c5, c6 = st.columns(3)
+                c4.metric("C / Z / S", niveles.get("nivel_c_z", "⚪ Sin datos"))
+                c5.metric("H", niveles.get("nivel_h", "⚪ Sin datos"))
+                c6.metric("Tildes", niveles.get("nivel_tildes", "⚪ Sin datos"))
+                
+                st.markdown("<hr style='margin-top: 2rem; margin-bottom: 2rem;'/>", unsafe_allow_html=True)
+            else:
+                st.info("Analiza tu primer texto para desbloquear tu nivel ortográfico 🚀")
+    except Exception as e:
+        st.warning(f"No se pudieron cargar los niveles: {e}")
+        
+    if st.button("Actualizar métricas", key="btn_refresh_metrics", use_container_width=True):
+        cargar_metricas(username, backend_url)
+        for d in st.session_state.get("__cache_documents", []):
+            _fetch_and_cache_doc_metrics(backend_url, d["id"])
+
+    ov = st.session_state.get("__cache_overview")
+    docs = st.session_state.get("__cache_documents")
+
+    if ov:
+        usage = ov.get("usage", {})
+        c1, c2 = st.columns(2, gap="medium")
+        c1.metric("📄 Documentos procesados", ov.get("docs", 0))
+        c2.metric("📆 Días en actividad", ov.get("login_days", 0))
+
+        c3, c4 = st.columns(2, gap="medium")
+        c3.metric("🔁 Inicios de sesión", usage.get("login", {}).get("count", 0))
+        avg_secs = float(ov.get("avg_session_seconds", 0.0) or 0.0)
+        c4.metric("⏱️ Tiempo medio por sesión", pretty_hms(avg_secs))
+
+        st.markdown("<h2 class='h-section'>📊 Promedios por métrica (histórico)</h2>", unsafe_allow_html=True)
+        avg_metrics = ov.get("avg_metrics", {})
+        if avg_metrics:
+            html_rows = ""
+            for key in SHOW_KEYS:
+                if key in avg_metrics:
+                    label = PRETTY.get(key, key)
+                    value = pretty_int(round(avg_metrics[key], 2))
+                    html_rows += f"<div style='padding: 0.4rem 0.8rem; border-radius: 0.4rem; background-color: #f9fafb; margin-bottom: 0.25rem;'><span style='font-weight: 400; color: #374151;'>{label}</span><span style='float: right; font-weight: 500; color: #000000;'>{value}</span></div>"
+            st.markdown(html_rows, unsafe_allow_html=True)
+        else:
+            st.info("Sin métricas históricas todavía.")
+
+        st.markdown("<h2 class='h-section'>📅 Actividad semanal</h2>", unsafe_allow_html=True)
+        st.markdown("<div style='margin-bottom: 1.5rem;'></div>", unsafe_allow_html=True)
+        try:
+            resp = requests.get(f"{backend_url}/users/{username}/weekly_activity", timeout=10)
+            if resp.ok:
+                data = resp.json().get("activity", [])
+                if data:
+                    import pandas as pd
+                    df = pd.DataFrame(data)
+                    df["minutos"] = df["total_seconds"] / 60.0
+                    df["day"] = pd.to_datetime(df["day"])
+                    df = df.sort_values("day")
+                    mapping = {"Monday":"Lun","Tuesday":"Mar","Wednesday":"Mié","Thursday":"Jue","Friday":"Vie","Saturday":"Sáb","Sunday":"Dom"}
+                    df["dia_semana"] = df["day"].dt.day_name().map(mapping)
+                    order = ["No inició sesión", "Hasta 5 min", "Hasta 15 min", "Hasta 30 min", "Más de 30 min"]
+
+                    chart = (
+                        alt.Chart(df)
+                        .mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4)
+                        .encode(
+                            x=alt.X("dia_semana:N", title="Día de la semana", sort=["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"]),
+                            y=alt.Y("minutos:Q", title="Minutos totales"),
+                            color=alt.Color("categoria:N", title="Nivel de actividad", scale=alt.Scale(domain=order, range=["#ef4444","#f97316","#facc15","#22c55e","#3b82f6"])),
+                            tooltip=[alt.Tooltip("day:T", title="Fecha"), alt.Tooltip("minutos:Q", title="Minutos totales", format=".1f"), alt.Tooltip("categoria:N", title="Nivel")],
+                        )
+                        .properties(height=300, width="container")
+                    )
+                    st.altair_chart(chart, use_container_width=True)
+                else:
+                    st.info("Sin datos de actividad aún.")
+            else:
+                st.warning("No se pudo obtener la actividad semanal.")
+        except Exception as e:
+            st.warning(f"Error al obtener la actividad: {e}")
+            
+    st.markdown("<h2 class='h-section'>📈 Evolución de errores ortográficos</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size: 0.95rem; color: #555;'>Muestra el % de error en los últimos 15 textos para cada categoría (solo se cuentan los textos que contenían palabras con riesgo de fallar).</p>", unsafe_allow_html=True)
+
+    try:
+        resp_prog = requests.get(f"{backend_url}/users/{username}/progress", timeout=10)
+        if resp_prog.ok:
+            prog_data = resp_prog.json().get("progress", [])
+            if prog_data:
+                import pandas as pd
+                df_prog = pd.DataFrame(prog_data)
+                chart_prog = (
+                    alt.Chart(df_prog)
+                    .mark_line(point=True, strokeWidth=3, size=80)
+                    .encode(
+                        x=alt.X("doc_index:O", title="Textos evaluados cronológicamente (1 = más antiguo)"),
+                        y=alt.Y("porcentaje_error:Q", title="% de Error cometido", scale=alt.Scale(domain=[0, 100])),
+                        color=alt.Color("categoria:N", title="Categoría"),
+                        tooltip=[alt.Tooltip("categoria:N", title="Regla"), alt.Tooltip("porcentaje_error:Q", title="% de Error", format=".1f"), alt.Tooltip("fecha:T", title="Fecha")]
+                    )
+                    .properties(height=350, width="container")
+                    .interactive()
+                )
+                st.altair_chart(chart_prog, use_container_width=True)
+            else:
+                st.info("Aún no tienes suficientes datos procesados para ver la evolución de las reglas ortográficas.")
+        else:
+            st.warning("No se pudo obtener el progreso histórico.")
+    except Exception as e:
+        st.warning(f"Error cargando la gráfica de progreso: {e}")
+        
+    st.markdown("<h1 style='text-align: center; margin-bottom: 0.5rem;'>🏅 Vitrina de Insignias</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #6b7280; font-size: 1.1rem; margin-bottom: 2rem;'>Mantén tu nivel de error por debajo del 10% durante 15 textos seguidos para desbloquearlas.</p>", unsafe_allow_html=True)
+    
+    try:
+        r_badges = requests.get(f"{backend_url}/users/{username}/badges", timeout=10)
+        user_badges = []
+        if r_badges.ok:
+            user_badges = r_badges.json().get("badges", [])
+
+        st.markdown("""
+        <style>
+        .vitrina { display: flex; flex-wrap: wrap; justify-content: center; gap: 2rem; margin-top: 3rem; margin-bottom: 3rem; }
+        .insignia-box { display: flex; flex-direction: column; align-items: center; width: 140px; text-align: center; }
+        .insignia-circle { width: 110px; height: 110px; border-radius: 50%; background-color: #f3f4f6; display: flex; align-items: center; justify-content: center; font-size: 3rem; margin-bottom: 1rem; transition: transform 0.3s ease, box-shadow 0.3s ease; box-shadow: inset 0 4px 6px rgba(0,0,0,0.1); filter: grayscale(100%) opacity(0.4); }
+        .insignia-earned { background: linear-gradient(135deg, #fbbf24, #f59e0b); box-shadow: 0 10px 25px rgba(245, 158, 11, 0.4); filter: grayscale(0%) opacity(1); transform: scale(1.05); }
+        .insignia-earned:hover { transform: scale(1.1) translateY(-5px); }
+        .insignia-master { background: linear-gradient(135deg, #a855f7, #7e22ce); box-shadow: 0 10px 30px rgba(168, 85, 247, 0.5); width: 140px; height: 140px; font-size: 4rem; }
+        .insignia-title { font-size: 0.95rem; font-weight: 700; color: #374151; line-height: 1.3; }
+        .insignia-subtitle { font-size: 0.75rem; color: #6b7280; margin-top: 0.2rem; }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        img_bv = get_base64_image("frontend/assets/BV.png")
+        img_gj = get_base64_image("frontend/assets/GJ.png")
+        img_cz = get_base64_image("frontend/assets/CZ.png")
+        img_yll = get_base64_image("frontend/assets/YLL.png")
+        img_tildes = get_base64_image("frontend/assets/tilde.png")
+        img_master = get_base64_image("frontend/assets/master.png")
+        img_be = get_base64_image("frontend/assets/buenaescritura.png")
+        img_h = get_base64_image("frontend/assets/H.png")
+
+        todas_insignias = [
+            {"id": "dominio_b_v", "titulo": "Dominio B/V", "sub": "15 textos impecables", "emoji": f"<img src='{img_bv}' style='width:100%; height:100%; object-fit:cover; border-radius:50%;'>"},
+            {"id": "dominio_g_j", "titulo": "Dominio G/J", "sub": "15 textos impecables", "emoji": f"<img src='{img_gj}' style='width:100%; height:100%; object-fit:cover; border-radius:50%;'>"},
+            {"id": "dominio_y_ll", "titulo": "Dominio Y/LL", "sub": "15 textos impecables", "emoji": f"<img src='{img_yll}' style='width:100%; height:100%; object-fit:cover; border-radius:50%;'>"},
+            {"id": "dominio_c_z", "titulo": "Dominio C/Z/S", "sub": "15 textos impecables", "emoji": f"<img src='{img_cz}' style='width:100%; height:100%; object-fit:cover; border-radius:50%;'>"},
+            {"id": "dominio_tildes", "titulo": "Francotirador", "sub": "Rey de las tildes", "emoji": f"<img src='{img_tildes}' style='width:100%; height:100%; object-fit:cover; border-radius:50%;'>"},
+            {"id": "dominio_h", "titulo": "Cazafantasmas", "sub": "Dominio de la H", "emoji": f"<img src='{img_h}' style='width:100%; height:100%; object-fit:cover; border-radius:50%;'>"},
+            {"id": "dominio_otros", "titulo": "Pluma de Oro", "sub": "Buena Escritura general", "emoji": f"<img src='{img_be}' style='width:100%; height:100%; object-fit:cover; border-radius:50%;'>"}
+        ]
+
+        html_insignias = "<div class='vitrina'>"
+        for ins in todas_insignias:
+            clase_extra = "insignia-earned" if ins["id"] in user_badges else ""
+            html_insignias += f"<div class='insignia-box'><div class='insignia-circle {clase_extra}'>{ins['emoji']}</div><div class='insignia-title'>{ins['titulo']}</div><div class='insignia-subtitle'>{ins['sub']}</div></div>"
+            
+        html_insignias += "</div>"
+        html_insignias = html_insignias.replace('\n', '').replace('\r', '')
+        st.markdown(html_insignias, unsafe_allow_html=True)
+        
+        clase_master = "insignia-earned insignia-master" if "master_ortografia" in user_badges else "insignia-master"
+        html_master = f"""<div class='vitrina' style='margin-top: 0;'><div class="insignia-box" style="width: 200px;"><div class="insignia-circle {clase_master}"><img src='{img_master}' style='width:100%; height:100%; object-fit:cover; border-radius:50%;'></div><div class="insignia-title" style="font-size: 1.2rem; margin-top: 0.5rem;">Máster de la Ortografía</div><div class="insignia-subtitle" style="font-size: 0.85rem;">Consigue todas las demás</div></div></div>"""
+        st.markdown(html_master.replace('\n', '').replace('\r', ''), unsafe_allow_html=True)
+
+    except Exception as e:
+        st.warning(f"Error cargando vitrina: {e}")
+        
+    st.markdown("<h2 class='h-section'>Documentos del alumno</h2>", unsafe_allow_html=True)
+    if docs:
+        for d in docs:
+            title = f"📄 {d['filename']} — {d['uploaded_at']}"
+            with st.expander(title, expanded=False):
+                cache_key = f"__cache_doc_{d['id']}"
+                if cache_key not in st.session_state:
+                    _fetch_and_cache_doc_metrics(backend_url, d["id"])
+
+                metrics_list = st.session_state.get(cache_key)
+                if metrics_list:
+                    latest_by_name = {}
+                    for row in metrics_list:
+                        latest_by_name[row["metric_name"]] = row["metric_value"]
+
+                    cA, cB = st.columns(2, gap="medium")
+                    for i, k in enumerate(SHOW_KEYS):
+                        if k in latest_by_name:
+                            (cA if i % 2 == 0 else cB).metric(PRETTY[k], pretty_int(latest_by_name[k]))
+
+                if es_propietario:
+                    del_flag_key = f"__confirm_del_{d['id']}"
+                    if st.button("❌ Eliminar", key=f"del_{d['id']}", use_container_width=True):
+                        st.session_state[del_flag_key] = True
+
+                    if st.session_state.get(del_flag_key):
+                        st.warning("Esta acción eliminará definitivamente el documento y sus métricas. ¿Confirmas?")
+                        col_ok, col_cancel = st.columns(2)
+                        if col_ok.button("Sí, eliminar", key=f"ok_{d['id']}", use_container_width=True):
+                            try:
+                                r = requests.delete(f"{backend_url}/documents/{d['id']}", timeout=15)
+                                if r.ok and r.json().get("ok"):
+                                    if st.session_state.get("last_doc_id") == d['id']:
+                                        clear_current_analysis()
+                                    st.session_state.pop(f"__cache_doc_{d['id']}", None)
+                                    cargar_metricas(username, backend_url)
+                                    st.session_state[del_flag_key] = False
+                                    st.rerun()
+                            except:
+                                pass
+                        if col_cancel.button("Cancelar", key=f"cancel_{d['id']}", use_container_width=True):
+                            st.session_state[del_flag_key] = False
+                else:
+                    st.info("Solo el alumno puede eliminar sus documentos.")
+    else:
+        st.info("No hay documentos aún.")
+    es_propietario = (st.session_state.get('usuario') == username)
+    es_admin = (st.session_state.get('usuario') == 'admin')
+    
+    try:
+        r_prof = requests.get(f"{backend_url}/users/{username}/profile", timeout=5)
+        perfil = r_prof.json().get("profile", {}) if r_prof.ok else {"avatar": "🐼", "current_streak": 1, "active_feedback": None}
+    except:
+        perfil = {"avatar": "🐼", "current_streak": 1, "active_feedback": None}
+
+    titulo = "👤 Mi Perfil" if es_propietario else f"👤 Perfil del Alumno: {username}"
+    st.markdown(f"<h1 style='text-align: center; margin-bottom: 2rem;'>{titulo}</h1>", unsafe_allow_html=True)
+    
+    if es_admin:
+        st.markdown("""
+        <div style='background-color: #f8fafc; border: 2px dashed #3b82f6; border-radius: 10px; padding: 1.5rem; margin-bottom: 2rem;'>
+            <h4 style='text-align: center; color: #1e3a8a; margin-top: 0;'>👨‍🏫 Enviar Feedback Rápido</h4>
+            <p style='text-align: center; color: #64748b; font-size: 0.9rem;'>Elige una pegatina para premiar o animar al alumno.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        stickers = ["sticker_increible", "sticker_animo", "sticker_sigueasi", "sticker_mejor"]
+        nombres_stickers = ["¡Increíble!", "¡Ánimo!", "¡Sigue así!", "Puede mejorar"]
+        cols_stickers = st.columns(4)
+        
+        for i, st_name in enumerate(stickers):
+            with cols_stickers[i]:
+                s_b64 = get_base64_image(f"frontend/assets/{st_name}.png")
+                st.markdown(f"<div style='text-align:center; margin-bottom: 10px;'><img src='{s_b64}' style='width: 80px; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.1));'></div>", unsafe_allow_html=True)
+                if st.button(nombres_stickers[i], key=f"btn_send_{st_name}", use_container_width=True):
+                    requests.post(f"{backend_url}/admin/students/{username}/feedback", data={"sticker": st_name})
+                    st.toast(f"Pegatina '{nombres_stickers[i]}' enviada a {username}", icon="✅")
+                    st.rerun()
+        
         if perfil.get("active_feedback"):
             st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
             if st.button("❌ Quitar feedback actual", use_container_width=True):
