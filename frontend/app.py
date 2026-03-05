@@ -19,7 +19,7 @@ def get_base64_image(image_path):
         return f"data:image/png;base64,{encoded_string}"
     except Exception:
         return "👑"  
-    
+
 EJERCICIOS_BASE = {
     "B_V": {
         "facil": [
@@ -164,7 +164,7 @@ EJERCICIOS_BASE = {
             {"masked": "idiosincra_ia", "opciones": ["c", "z", "s"], "correcta": "s", "palabra": "idiosincrasia"},
             {"masked": "ascen_ión", "opciones": ["c", "z", "s"], "correcta": "s", "palabra": "ascensión"},
             {"masked": "exacerba_ión", "opciones": ["c", "z", "s"], "correcta": "c", "palabra": "exacerbación"},
-            {"masked": "vicisi_ud", "opciones": ["c", "z", "s"], "correcta": "t", "palabra": "vicisitud"}, # Trampa de T, pero dejaremos s/t en un nivel general, o usemos otra
+            {"masked": "vicisi_ud", "opciones": ["c", "z", "t"], "correcta": "t", "palabra": "vicisitud"},
             {"masked": "suspica_ia", "opciones": ["c", "z", "s"], "correcta": "c", "palabra": "suspicacia"},
             {"masked": "locua_idad", "opciones": ["c", "z", "s"], "correcta": "c", "palabra": "locuacidad"},
             {"masked": "zo_obra", "opciones": ["c", "z", "s"], "correcta": "z", "palabra": "zozobra"},
@@ -186,7 +186,6 @@ EJERCICIOS_BASE = {
             {"masked": "_orno", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "horno"},
             {"masked": "_uerto", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "huerto"}
         ],
-        # ---> ATENCIÓN: ESTE ES EL NIVEL DE LA DEMO <---
         "intermedio": [
             {"masked": "almo_ada", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "almohada"},
             {"masked": "ex_ibición", "opciones": ["h", "Ø (nada)"], "correcta": "h", "palabra": "exhibición"},
@@ -254,9 +253,6 @@ EJERCICIOS_BASE = {
 
 st.set_page_config(page_title="PALABRIA", layout="centered")
 
-# =========================
-# UI: labels/keys
-# =========================
 PRETTY = {
     "total_frases": "Total de frases",
     "frases_con_tu_impersonal": "Posibles frases con 'tú' impersonal",
@@ -276,9 +272,6 @@ MODE_OPTIONS = {
     "👤 Tú impersonal → impersonal con “se”": "tu_impersonal",
 }
 
-# =========================
-# CSS
-# =========================
 st.markdown("""
 <style>
 form[data-testid="stForm"] { margin-top: 5rem !important; }
@@ -291,21 +284,20 @@ div[data-testid="stVegaLiteChart"] { margin-bottom: -0.5rem !important; }
 .stTabs { margin-top: 0.35rem; }
 .stTabs [data-baseweb="tab"], .stTabs button[role="tab"] { font-size: 1.30rem !important; font-weight: 700 !important; padding: .50rem 1.00rem !important; border: 1px solid rgba(49,51,63,0.12) !important; border-radius: .55rem !important; background: #fff !important; margin-right: .5rem !important; line-height: 1.2 !important; min-height: 2.4rem !important; }
 .stTabs [aria-selected="true"], .stTabs button[role="tab"][aria-selected="true"] { border-color: #2563eb !important; box-shadow: 0 0 0 2px rgba(37,99,235,0.08) inset !important; }
-div[data-testid="stMetric"] { padding: 0.5rem 0.6rem !important; border: 1px solid rgba(49,51,63,0.15) !important; border-radius: 0.5rem !important; background: #ffffff !important; text-align: center !important; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
-div[data-testid="stMetricLabel"] { font-size: 1rem !important; font-weight: 500 !important; color: #111827 !important; margin-bottom: 0.15rem !important; line-height: 1.15 !important; text-align: center !important; }
-div[data-testid="stMetricValue"] { font-size: 1.15rem !important; font-weight: 600 !important; color: #000000 !important; text-align: center !important; line-height: 1.2 !important; }
+div[data-testid="stMetric"] { padding: 0.5rem 0.6rem !important; border: 1px solid rgba(49,51,63,0.15) !important; border-radius: 0.5rem !important; background: #ffffff !important; text-align: center !important; box-shadow: 0 1px 2px rgba(0,0,0,0.04); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+div[data-testid="stMetricLabel"] { font-size: 1rem !important; font-weight: 600 !important; color: #111827 !important; margin-bottom: 0.15rem !important; line-height: 1.15 !important; text-align: center !important; justify-content: center !important; align-items: center !important; }
+div[data-testid="stMetricValue"] { font-size: 1.15rem !important; font-weight: 500 !important; color: #000000 !important; text-align: center !important; line-height: 1.2 !important; justify-content: center !important; align-items: center !important; }
 .readonly-box { border: 1px solid rgba(49,51,63,0.2); border-radius: 0.5rem; padding: 0.5rem 0.6rem; background: #ffffff; color: inherit; font-family: inherit; line-height: 1.45; width: 100%; box-sizing: border-box; max-width: 100%; overflow-x: hidden; overflow-y: auto; min-height: 150px; max-height: 300px; }
 .readonly-box[readonly] { background: #ffffff; color: inherit; cursor: default; }
 div[data-testid="stRadio"], div[data-testid="stTextInput"], div[data-testid="stFileUploader"] { margin-top: -0.35rem !important; margin-bottom: -0.15rem !important; }
 div[data-testid="stTextArea"] { overflow: visible !important; margin-right: 0 !important; padding-right: 0 !important; width: 100% !important; box-sizing: border-box !important; }
 div[data-testid="stTextArea"] > div { overflow: visible !important; width: 100% !important; }
 div[data-testid="stTextArea"] textarea { overflow-x: hidden !important; overflow-y: auto !important; width: 100% !important; max-width: 100% !important; box-sizing: border-box !important; resize: vertical !important; font-size: 1rem !important; line-height: 1.5 !important; border: 1px solid rgba(49,51,63,0.2) !important; border-radius: 0.5rem !important; padding: 0.5rem 0.6rem !important; background: #ffffff !important; }
+div[data-testid="stButton"] > button[kind="secondary"] { background-color: #f0f0f0 !important; color: #333 !important; border: 1px solid #d1d5db !important; font-weight: 600 !important; transition: background-color 0.2s ease; }
+div[data-testid="stButton"] > button[kind="secondary"]:hover { background-color: #e5e5e5 !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# =========================
-# Helpers
-# =========================
 def save_text_as_pdf(text, filename="Texto_Corregido.pdf"):
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
@@ -406,9 +398,6 @@ def _post_user_changes(backend_url, doc_id: int, changes: int):
         _fetch_and_cache_doc_metrics(backend_url, doc_id)
     except Exception: pass
 
-# =========================
-# Auth forms
-# =========================
 def login():
     with st.form("login_form"):
         st.markdown("<h2 class='h-section'>🔓 Iniciar sesión</h2>", unsafe_allow_html=True)
@@ -463,13 +452,9 @@ def create_account():
                 except Exception as e: st.error(f"Error conectando con backend: {e}")
             else: st.warning("Por favor, escribe un nombre de usuario.")
 
-
-# =========================
-# VISTAS PROFESOR (ADMIN)
-# =========================
 def mostrar_admin_alumnos(backend_url):
     if st.session_state.get("admin_view_student"):
-        if st.button("⬅️ Volver a la lista de alumnos", type="primary"):
+        if st.button("⬅️ Volver a la lista de alumnos", type="primary", key="btn_admin_back"):
             st.session_state.admin_view_student = None
             st.rerun()
         mostrar_perfil(st.session_state.admin_view_student, backend_url)
@@ -502,7 +487,7 @@ def mostrar_admin_alumnos(backend_url):
                 <div style="color: #64748b; font-size: 0.9rem; font-weight: 500; margin-top: 5px;">Nivel: {s['nivel_general'].replace('🟢', '').replace('🟡', '').replace('🔴', '').replace('⚪', '').strip()}</div>
             </div>
             """, unsafe_allow_html=True)
-            if st.button("Ver Expediente", key=f"ver_{s['username']}", use_container_width=True):
+            if st.button("Ver Expediente", key=f"ver_{s['username']}_{i}", use_container_width=True):
                 st.session_state.admin_view_student = s['username']
                 st.rerun()
 
@@ -570,10 +555,6 @@ def mostrar_admin_metricas(backend_url):
         except Exception as e:
             st.warning("No se pudo cargar el rendimiento del gimnasio.")
 
-
-# =========================
-# VISTA DE PERFIL (ALUMNO Y PROFE)
-# =========================
 def cargar_metricas(username, backend_url):
     ov = requests.get(f"{backend_url}/users/{username}/overview", timeout=20).json()
     docs = requests.get(f"{backend_url}/users/{username}/documents", timeout=20).json().get("documents", [])
@@ -609,15 +590,14 @@ def mostrar_perfil(username, backend_url):
             with cols_stickers[i]:
                 s_b64 = get_base64_image(f"frontend/assets/{st_name}.png")
                 st.markdown(f"<div style='text-align:center; margin-bottom: 10px;'><img src='{s_b64}' style='width: 80px; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.1));'></div>", unsafe_allow_html=True)
-                if st.button(nombres_stickers[i], key=f"btn_send_{st_name}", use_container_width=True):
+                if st.button(nombres_stickers[i], key=f"btn_send_{st_name}_{username}", use_container_width=True):
                     requests.post(f"{backend_url}/admin/students/{username}/feedback", data={"sticker": st_name})
                     st.toast(f"Pegatina '{nombres_stickers[i]}' enviada a {username}", icon="✅")
                     st.rerun()
         
-        # EL TRUCO ESTÁ AQUÍ: Comprobamos que no esté vacío y mandamos un ESPACIO " "
         if perfil.get("active_feedback") and str(perfil.get("active_feedback")).strip() != "":
             st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
-            if st.button("❌ Quitar feedback actual", use_container_width=True):
+            if st.button("❌ Quitar feedback actual", use_container_width=True, key=f"btn_remove_fb_{username}"):
                 requests.post(f"{backend_url}/admin/students/{username}/feedback", data={"sticker": " "})
                 st.rerun()
         
@@ -634,15 +614,14 @@ def mostrar_perfil(username, backend_url):
             with st.expander("Cambiar Avatar", expanded=False):
                 avatares = ['🐼', '🦊', '🐱', '🐶', '🦄', '🐸', '🦉', '🐙', '🦁', '🐻', '🐵', '🐮']
                 idx = avatares.index(perfil.get("avatar")) if perfil.get("avatar") in avatares else 0
-                nuevo_avatar = st.selectbox("Elige tu nuevo avatar", avatares, index=idx, key="sel_avatar_profile")
-                if st.button("Guardar Avatar", use_container_width=True):
+                nuevo_avatar = st.selectbox("Elige tu nuevo avatar", avatares, index=idx, key=f"sel_avatar_{username}")
+                if st.button("Guardar Avatar", use_container_width=True, key=f"btn_save_ava_{username}"):
                     requests.post(f"{backend_url}/users/{username}/avatar", data={"avatar": nuevo_avatar})
                     st.session_state["mi_avatar"] = nuevo_avatar  
                     st.rerun()
 
     with c3:
         active_fb = perfil.get("active_feedback")
-        # Y AQUÍ TAMBIÉN: Si es solo un espacio en blanco, lo ignora y no lo dibuja
         if active_fb and str(active_fb).strip() != "":
             fb_b64 = get_base64_image(f"frontend/assets/{active_fb}.png")
             st.markdown(f"""
@@ -700,7 +679,7 @@ def mostrar_perfil(username, backend_url):
     except Exception as e:
         st.warning(f"No se pudieron cargar los niveles: {e}")
         
-    if st.button("Actualizar métricas", key="btn_refresh_metrics", use_container_width=True):
+    if st.button("Actualizar métricas", key=f"btn_refresh_metrics_{username}", use_container_width=True):
         cargar_metricas(username, backend_url)
         for d in st.session_state.get("__cache_documents", []):
             _fetch_and_cache_doc_metrics(backend_url, d["id"])
@@ -768,7 +747,7 @@ def mostrar_perfil(username, backend_url):
             st.warning(f"Error al obtener la actividad: {e}")
             
     st.markdown("<h2 class='h-section'>📈 Evolución de errores ortográficos</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='font-size: 0.95rem; color: #555;'>Muestra el % de error en los últimos 15 textos para cada categoría (solo se cuentan los textos que contenían palabras con riesgo de fallar).</p>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size: 0.95rem; color: #555;'>Muestra el % de error en los últimos 15 textos para cada categoría.</p>", unsafe_allow_html=True)
 
     try:
         resp_prog = requests.get(f"{backend_url}/users/{username}/progress", timeout=10)
@@ -791,361 +770,13 @@ def mostrar_perfil(username, backend_url):
                 )
                 st.altair_chart(chart_prog, use_container_width=True)
             else:
-                st.info("Aún no tienes suficientes datos procesados para ver la evolución de las reglas ortográficas.")
+                st.info("Aún no tienes suficientes datos procesados.")
         else:
             st.warning("No se pudo obtener el progreso histórico.")
     except Exception as e:
         st.warning(f"Error cargando la gráfica de progreso: {e}")
         
     st.markdown("<h1 style='text-align: center; margin-bottom: 0.5rem;'>🏅 Vitrina de Insignias</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #6b7280; font-size: 1.1rem; margin-bottom: 2rem;'>Mantén tu nivel de error por debajo del 10% durante 15 textos seguidos para desbloquearlas.</p>", unsafe_allow_html=True)
-    
-    try:
-        r_badges = requests.get(f"{backend_url}/users/{username}/badges", timeout=10)
-        user_badges = []
-        if r_badges.ok:
-            user_badges = r_badges.json().get("badges", [])
-
-        st.markdown("""
-        <style>
-        .vitrina { display: flex; flex-wrap: wrap; justify-content: center; gap: 2rem; margin-top: 3rem; margin-bottom: 3rem; }
-        .insignia-box { display: flex; flex-direction: column; align-items: center; width: 140px; text-align: center; }
-        .insignia-circle { width: 110px; height: 110px; border-radius: 50%; background-color: #f3f4f6; display: flex; align-items: center; justify-content: center; font-size: 3rem; margin-bottom: 1rem; transition: transform 0.3s ease, box-shadow 0.3s ease; box-shadow: inset 0 4px 6px rgba(0,0,0,0.1); filter: grayscale(100%) opacity(0.4); }
-        .insignia-earned { background: linear-gradient(135deg, #fbbf24, #f59e0b); box-shadow: 0 10px 25px rgba(245, 158, 11, 0.4); filter: grayscale(0%) opacity(1); transform: scale(1.05); }
-        .insignia-earned:hover { transform: scale(1.1) translateY(-5px); }
-        .insignia-master { background: linear-gradient(135deg, #a855f7, #7e22ce); box-shadow: 0 10px 30px rgba(168, 85, 247, 0.5); width: 140px; height: 140px; font-size: 4rem; }
-        .insignia-title { font-size: 0.95rem; font-weight: 700; color: #374151; line-height: 1.3; }
-        .insignia-subtitle { font-size: 0.75rem; color: #6b7280; margin-top: 0.2rem; }
-        </style>
-        """, unsafe_allow_html=True)
-        
-        img_bv = get_base64_image("frontend/assets/BV.png")
-        img_gj = get_base64_image("frontend/assets/GJ.png")
-        img_cz = get_base64_image("frontend/assets/CZ.png")
-        img_yll = get_base64_image("frontend/assets/YLL.png")
-        img_tildes = get_base64_image("frontend/assets/tilde.png")
-        img_master = get_base64_image("frontend/assets/master.png")
-        img_be = get_base64_image("frontend/assets/buenaescritura.png")
-        img_h = get_base64_image("frontend/assets/H.png")
-
-        todas_insignias = [
-            {"id": "dominio_b_v", "titulo": "Dominio B/V", "sub": "15 textos impecables", "emoji": f"<img src='{img_bv}' style='width:100%; height:100%; object-fit:cover; border-radius:50%;'>"},
-            {"id": "dominio_g_j", "titulo": "Dominio G/J", "sub": "15 textos impecables", "emoji": f"<img src='{img_gj}' style='width:100%; height:100%; object-fit:cover; border-radius:50%;'>"},
-            {"id": "dominio_y_ll", "titulo": "Dominio Y/LL", "sub": "15 textos impecables", "emoji": f"<img src='{img_yll}' style='width:100%; height:100%; object-fit:cover; border-radius:50%;'>"},
-            {"id": "dominio_c_z", "titulo": "Dominio C/Z/S", "sub": "15 textos impecables", "emoji": f"<img src='{img_cz}' style='width:100%; height:100%; object-fit:cover; border-radius:50%;'>"},
-            {"id": "dominio_tildes", "titulo": "Francotirador", "sub": "Rey de las tildes", "emoji": f"<img src='{img_tildes}' style='width:100%; height:100%; object-fit:cover; border-radius:50%;'>"},
-            {"id": "dominio_h", "titulo": "Cazafantasmas", "sub": "Dominio de la H", "emoji": f"<img src='{img_h}' style='width:100%; height:100%; object-fit:cover; border-radius:50%;'>"},
-            {"id": "dominio_otros", "titulo": "Pluma de Oro", "sub": "Buena Escritura general", "emoji": f"<img src='{img_be}' style='width:100%; height:100%; object-fit:cover; border-radius:50%;'>"}
-        ]
-
-        html_insignias = "<div class='vitrina'>"
-        for ins in todas_insignias:
-            clase_extra = "insignia-earned" if ins["id"] in user_badges else ""
-            html_insignias += f"<div class='insignia-box'><div class='insignia-circle {clase_extra}'>{ins['emoji']}</div><div class='insignia-title'>{ins['titulo']}</div><div class='insignia-subtitle'>{ins['sub']}</div></div>"
-            
-        html_insignias += "</div>"
-        html_insignias = html_insignias.replace('\n', '').replace('\r', '')
-        st.markdown(html_insignias, unsafe_allow_html=True)
-        
-        clase_master = "insignia-earned insignia-master" if "master_ortografia" in user_badges else "insignia-master"
-        html_master = f"""<div class='vitrina' style='margin-top: 0;'><div class="insignia-box" style="width: 200px;"><div class="insignia-circle {clase_master}"><img src='{img_master}' style='width:100%; height:100%; object-fit:cover; border-radius:50%;'></div><div class="insignia-title" style="font-size: 1.2rem; margin-top: 0.5rem;">Máster de la Ortografía</div><div class="insignia-subtitle" style="font-size: 0.85rem;">Consigue todas las demás</div></div></div>"""
-        st.markdown(html_master.replace('\n', '').replace('\r', ''), unsafe_allow_html=True)
-
-    except Exception as e:
-        st.warning(f"Error cargando vitrina: {e}")
-        
-    st.markdown("<h2 class='h-section'>Documentos del alumno</h2>", unsafe_allow_html=True)
-    if docs:
-        for d in docs:
-            title = f"📄 {d['filename']} — {d['uploaded_at']}"
-            with st.expander(title, expanded=False):
-                cache_key = f"__cache_doc_{d['id']}"
-                if cache_key not in st.session_state:
-                    _fetch_and_cache_doc_metrics(backend_url, d["id"])
-
-                metrics_list = st.session_state.get(cache_key)
-                if metrics_list:
-                    latest_by_name = {}
-                    for row in metrics_list:
-                        latest_by_name[row["metric_name"]] = row["metric_value"]
-
-                    cA, cB = st.columns(2, gap="medium")
-                    for i, k in enumerate(SHOW_KEYS):
-                        if k in latest_by_name:
-                            (cA if i % 2 == 0 else cB).metric(PRETTY[k], pretty_int(latest_by_name[k]))
-
-                if es_propietario:
-                    del_flag_key = f"__confirm_del_{d['id']}"
-                    if st.button("❌ Eliminar", key=f"del_{d['id']}", use_container_width=True):
-                        st.session_state[del_flag_key] = True
-
-                    if st.session_state.get(del_flag_key):
-                        st.warning("Esta acción eliminará definitivamente el documento y sus métricas. ¿Confirmas?")
-                        col_ok, col_cancel = st.columns(2)
-                        if col_ok.button("Sí, eliminar", key=f"ok_{d['id']}", use_container_width=True):
-                            try:
-                                r = requests.delete(f"{backend_url}/documents/{d['id']}", timeout=15)
-                                if r.ok and r.json().get("ok"):
-                                    if st.session_state.get("last_doc_id") == d['id']:
-                                        clear_current_analysis()
-                                    st.session_state.pop(f"__cache_doc_{d['id']}", None)
-                                    cargar_metricas(username, backend_url)
-                                    st.session_state[del_flag_key] = False
-                                    st.rerun()
-                            except:
-                                pass
-                        if col_cancel.button("Cancelar", key=f"cancel_{d['id']}", use_container_width=True):
-                            st.session_state[del_flag_key] = False
-                else:
-                    st.info("Solo el alumno puede eliminar sus documentos.")
-    else:
-        st.info("No hay documentos aún.")
-    es_propietario = (st.session_state.get('usuario') == username)
-    es_admin = (st.session_state.get('usuario') == 'admin')
-    
-    try:
-        r_prof = requests.get(f"{backend_url}/users/{username}/profile", timeout=5)
-        perfil = r_prof.json().get("profile", {}) if r_prof.ok else {"avatar": "🐼", "current_streak": 1, "active_feedback": None}
-    except:
-        perfil = {"avatar": "🐼", "current_streak": 1, "active_feedback": None}
-
-    titulo = "👤 Mi Perfil" if es_propietario else f"👤 Perfil del Alumno: {username}"
-    st.markdown(f"<h1 style='text-align: center; margin-bottom: 2rem;'>{titulo}</h1>", unsafe_allow_html=True)
-    
-    if es_admin:
-        st.markdown("""
-        <div style='background-color: #f8fafc; border: 2px dashed #3b82f6; border-radius: 10px; padding: 1.5rem; margin-bottom: 2rem;'>
-            <h4 style='text-align: center; color: #1e3a8a; margin-top: 0;'>👨‍🏫 Enviar Feedback Rápido</h4>
-            <p style='text-align: center; color: #64748b; font-size: 0.9rem;'>Elige una pegatina para premiar o animar al alumno.</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        stickers = ["sticker_increible", "sticker_animo", "sticker_sigueasi", "sticker_mejor"]
-        nombres_stickers = ["¡Increíble!", "¡Ánimo!", "¡Sigue así!", "Puede mejorar"]
-        cols_stickers = st.columns(4)
-        
-        for i, st_name in enumerate(stickers):
-            with cols_stickers[i]:
-                s_b64 = get_base64_image(f"frontend/assets/{st_name}.png")
-                st.markdown(f"<div style='text-align:center; margin-bottom: 10px;'><img src='{s_b64}' style='width: 80px; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.1));'></div>", unsafe_allow_html=True)
-                if st.button(nombres_stickers[i], key=f"btn_send_{st_name}", use_container_width=True):
-                    requests.post(f"{backend_url}/admin/students/{username}/feedback", data={"sticker": st_name})
-                    st.toast(f"Pegatina '{nombres_stickers[i]}' enviada a {username}", icon="✅")
-                    st.rerun()
-        
-        if perfil.get("active_feedback"):
-            st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
-            if st.button("❌ Quitar feedback actual", use_container_width=True):
-                requests.post(f"{backend_url}/admin/students/{username}/feedback", data={"sticker": ""})
-                st.rerun()
-        
-        st.markdown("<hr style='margin: 2rem 0;'/>", unsafe_allow_html=True)
-
-    c1, c2, c3 = st.columns([1, 2, 1])
-    
-    with c2:
-        st.markdown(f"<div style='font-size: 6rem; text-align: center; line-height: 1;'>{perfil.get('avatar')}</div>", unsafe_allow_html=True)
-        st.markdown(f"<h2 style='text-align: center; margin-top: 0.5rem;'>{username}</h2>", unsafe_allow_html=True)
-        st.markdown(f"<h4 style='text-align: center; color: #f59e0b; margin-top: -10px;'>🔥 Racha actual: {perfil.get('current_streak')} días</h4>", unsafe_allow_html=True)
-        
-        if es_propietario:
-            with st.expander("Cambiar Avatar", expanded=False):
-                avatares = ['🐼', '🦊', '🐱', '🐶', '🦄', '🐸', '🦉', '🐙', '🦁', '🐻', '🐵', '🐮']
-                idx = avatares.index(perfil.get("avatar")) if perfil.get("avatar") in avatares else 0
-                nuevo_avatar = st.selectbox("Elige tu nuevo avatar", avatares, index=idx, key=f"sel_avatar_{username}")
-                if st.button("Guardar Avatar", use_container_width=True):
-                    requests.post(f"{backend_url}/users/{username}/avatar", data={"avatar": nuevo_avatar})
-                    st.session_state["mi_avatar"] = nuevo_avatar  
-                    st.rerun()
-
-    with c3:
-        active_fb = perfil.get("active_feedback")
-        if active_fb and active_fb != "":
-            fb_b64 = get_base64_image(f"frontend/assets/{active_fb}.png")
-            st.markdown(f"""
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; animation: floatSticker 3s ease-in-out infinite;">
-                <div style="background: #ef4444; color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; margin-bottom: -5px; z-index: 10;">Mensaje del Profe</div>
-                <img src='{fb_b64}' style='width: 120px; filter: drop-shadow(0px 10px 15px rgba(0,0,0,0.2));'>
-            </div>
-            <style>@keyframes floatSticker {{ 0% {{ transform: translateY(0px) rotate(0deg); }} 50% {{ transform: translateY(-10px) rotate(3deg); }} 100% {{ transform: translateY(0px) rotate(0deg); }} }}</style>
-            """, unsafe_allow_html=True)
-
-    st.markdown("<hr style='margin: 2rem 0;'/>", unsafe_allow_html=True)
-    if "__cache_overview" not in st.session_state or "__cache_documents" not in st.session_state:
-        try:
-            cargar_metricas(username, backend_url)
-            for d in st.session_state.get("__cache_documents", []):
-                _fetch_and_cache_doc_metrics(backend_url, d["id"])
-        except Exception as e:
-            st.error(f"No se pudieron cargar las métricas: {e}")
-            
-    st.markdown("<h2 class='h-section'>🏆 Tu Nivel Ortográfico</h2>", unsafe_allow_html=True)
-    
-    try:
-        r_niveles = requests.get(f"{backend_url}/users/{username}/levels", timeout=10)
-        if r_niveles.ok:
-            niveles = r_niveles.json().get("niveles", {})
-            if niveles:
-                nivel_gen = niveles.get("nivel_general", "⚪ Sin datos")
-                color_bg = "#f3f4f6"
-                color_border = "#d1d5db"
-                if "Avanzado" in nivel_gen: color_bg, color_border = "#dcfce7", "#22c55e"
-                elif "Medio" in nivel_gen: color_bg, color_border = "#fef08a", "#eab308"
-                elif "Bajo" in nivel_gen: color_bg, color_border = "#fee2e2", "#ef4444"
-
-                st.markdown(f"""
-                <div style='text-align: center; padding: 1.5rem; background: {color_bg}; border-radius: 15px; border: 2px solid {color_border}; margin-bottom: 1.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.05);'>
-                    <h3 style='margin:0; color: #374151; font-weight: 600;'>Nivel General Ortográfico</h3>
-                    <h1 style='margin:0; font-size: 2.5rem; color: #111827;'>{nivel_gen}</h1>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                st.markdown("<p style='text-align: center; font-weight: 600;'>Desglose por categoría:</p>", unsafe_allow_html=True)
-                c1, c2, c3 = st.columns(3)
-                c1.metric("B / V", niveles.get("nivel_b_v", "⚪ Sin datos"))
-                c2.metric("G / J", niveles.get("nivel_g_j", "⚪ Sin datos"))
-                c3.metric("Y / LL", niveles.get("nivel_y_ll", "⚪ Sin datos"))
-                
-                c4, c5, c6 = st.columns(3)
-                c4.metric("C / Z / S", niveles.get("nivel_c_z", "⚪ Sin datos"))
-                c5.metric("H", niveles.get("nivel_h", "⚪ Sin datos"))
-                c6.metric("Tildes", niveles.get("nivel_tildes", "⚪ Sin datos"))
-                
-                st.markdown("<hr style='margin-top: 2rem; margin-bottom: 2rem;'/>", unsafe_allow_html=True)
-            else:
-                st.info("Analiza tu primer texto para desbloquear tu nivel ortográfico 🚀")
-    except Exception as e:
-        st.warning(f"No se pudieron cargar los niveles: {e}")
-        
-    st.markdown(
-        """
-        <style>
-        div[data-testid="stButton"] > button[kind="secondary"],
-        div[data-testid="stButton"] > button#btn_refresh_metrics {
-            background-color: #f0f0f0 !important;
-            color: #333 !important;
-            border: 1px solid #d1d5db !important;
-            font-weight: 600 !important;
-            transition: background-color 0.2s ease;
-        }
-        div[data-testid="stButton"] > button#btn_refresh_metrics:hover {
-            background-color: #e5e5e5 !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-    if st.button("Actualizar métricas", key="btn_refresh_metrics", use_container_width=True):
-        cargar_metricas(username, backend_url)
-        for d in st.session_state.get("__cache_documents", []):
-            _fetch_and_cache_doc_metrics(backend_url, d["id"])
-
-    st.markdown("""
-    <style>
-    div[data-testid="stMetric"] { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center !important; }
-    div[data-testid="stMetricLabel"] { text-align: center !important; justify-content: center !important; align-items: center !important; font-weight: 600 !important; }
-    div[data-testid="stMetricValue"] { text-align: center !important; justify-content: center !important; align-items: center !important; font-weight: 500 !important; color: #000 !important; font-size: 0.97rem !important; }
-    </style>
-    """, unsafe_allow_html=True)
-
-    ov = st.session_state.get("__cache_overview")
-    docs = st.session_state.get("__cache_documents")
-
-    if ov:
-        usage = ov.get("usage", {})
-        c1, c2 = st.columns(2, gap="medium")
-        c1.metric("📄 Documentos procesados", ov.get("docs", 0))
-        c2.metric("📆 Días en actividad", ov.get("login_days", 0))
-
-        c3, c4 = st.columns(2, gap="medium")
-        c3.metric("🔁 Inicios de sesión", usage.get("login", {}).get("count", 0))
-        avg_secs = float(ov.get("avg_session_seconds", 0.0) or 0.0)
-        c4.metric("⏱️ Tiempo medio por sesión", pretty_hms(avg_secs))
-
-        c5, c6 = st.columns(2, gap="medium")
-        c5.metric("📈 % docs con 'tú' impersonal", f"{float(ov.get('docs_with_tu_percent', 0.0) or 0.0):.1f}%")
-        c6.metric("🛠️ % docs sin cambios", f"{float(ov.get('docs_no_changes_percent', 0.0) or 0.0):.1f}%")
-
-        st.markdown("<h2 class='h-section'>📊 Promedios por métrica (histórico)</h2>", unsafe_allow_html=True)
-        avg_metrics = ov.get("avg_metrics", {})
-        if avg_metrics:
-            html_rows = ""
-            for key in SHOW_KEYS:
-                if key in avg_metrics:
-                    label = PRETTY.get(key, key)
-                    value = pretty_int(round(avg_metrics[key], 2))
-                    html_rows += f"<div style='padding: 0.4rem 0.8rem; border-radius: 0.4rem; background-color: #f9fafb; margin-bottom: 0.25rem;'><span style='font-weight: 400; color: #374151;'>{label}</span><span style='float: right; font-weight: 500; color: #000000;'>{value}</span></div>"
-            st.markdown(html_rows, unsafe_allow_html=True)
-        else:
-            st.info("Sin métricas históricas todavía.")
-
-        st.markdown("<h2 class='h-section'>📅 Actividad semanal</h2>", unsafe_allow_html=True)
-        st.markdown("<div style='margin-bottom: 1.5rem;'></div>", unsafe_allow_html=True)
-        try:
-            resp = requests.get(f"{backend_url}/users/{username}/weekly_activity", timeout=10)
-            if resp.ok:
-                data = resp.json().get("activity", [])
-                if data:
-                    import pandas as pd
-                    df = pd.DataFrame(data)
-                    df["minutos"] = df["total_seconds"] / 60.0
-                    df["day"] = pd.to_datetime(df["day"])
-                    df = df.sort_values("day")
-                    mapping = {"Monday":"Lun","Tuesday":"Mar","Wednesday":"Mié","Thursday":"Jue","Friday":"Vie","Saturday":"Sáb","Sunday":"Dom"}
-                    df["dia_semana"] = df["day"].dt.day_name().map(mapping)
-                    order = ["No inició sesión", "Hasta 5 min", "Hasta 15 min", "Hasta 30 min", "Más de 30 min"]
-
-                    chart = (
-                        alt.Chart(df)
-                        .mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4)
-                        .encode(
-                            x=alt.X("dia_semana:N", title="Día de la semana", sort=["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"]),
-                            y=alt.Y("minutos:Q", title="Minutos totales"),
-                            color=alt.Color("categoria:N", title="Nivel de actividad", scale=alt.Scale(domain=order, range=["#ef4444","#f97316","#facc15","#22c55e","#3b82f6"])),
-                            tooltip=[alt.Tooltip("day:T", title="Fecha"), alt.Tooltip("minutos:Q", title="Minutos totales", format=".1f"), alt.Tooltip("categoria:N", title="Nivel")],
-                        )
-                        .properties(height=300, width="container")
-                    )
-                    st.altair_chart(chart, use_container_width=True)
-                else:
-                    st.info("Sin datos de actividad aún.")
-            else:
-                st.warning("No se pudo obtener la actividad semanal.")
-        except Exception as e:
-            st.warning(f"Error al obtener la actividad: {e}")
-            
-    st.markdown("<h2 class='h-section'>📈 Evolución de errores ortográficos</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='font-size: 0.95rem; color: #555;'>Muestra el % de error en los últimos 15 textos para cada categoría (solo se cuentan los textos que contenían palabras con riesgo de fallar).</p>", unsafe_allow_html=True)
-
-    try:
-        resp_prog = requests.get(f"{backend_url}/users/{username}/progress", timeout=10)
-        if resp_prog.ok:
-            prog_data = resp_prog.json().get("progress", [])
-            if prog_data:
-                import pandas as pd
-                df_prog = pd.DataFrame(prog_data)
-                chart_prog = (
-                    alt.Chart(df_prog)
-                    .mark_line(point=True, strokeWidth=3, size=80)
-                    .encode(
-                        x=alt.X("doc_index:O", title="Textos evaluados cronológicamente (1 = más antiguo)"),
-                        y=alt.Y("porcentaje_error:Q", title="% de Error cometido", scale=alt.Scale(domain=[0, 100])),
-                        color=alt.Color("categoria:N", title="Categoría"),
-                        tooltip=[alt.Tooltip("categoria:N", title="Regla"), alt.Tooltip("porcentaje_error:Q", title="% de Error", format=".1f"), alt.Tooltip("fecha:T", title="Fecha")]
-                    )
-                    .properties(height=350, width="container")
-                    .interactive()
-                )
-                st.altair_chart(chart_prog, use_container_width=True)
-            else:
-                st.info("Aún no tienes suficientes datos procesados para ver la evolución de las reglas ortográficas.")
-        else:
-            st.warning("No se pudo obtener el progreso histórico.")
-    except Exception as e:
-        st.warning(f"Error cargando la gráfica de progreso: {e}")
-        
-    st.markdown("<h1 style='text-align: center; margin-bottom: 0.5rem;'>🏅 Vitrina de Insignias</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #6b7280; font-size: 1.1rem; margin-bottom: 2rem;'>Mantén tu nivel de error por debajo del 10% durante 15 textos seguidos para desbloquearlas.</p>", unsafe_allow_html=True)
     
     try:
         r_badges = requests.get(f"{backend_url}/users/{username}/badges", timeout=10)
@@ -1220,14 +851,14 @@ def mostrar_perfil(username, backend_url):
                             (cA if i % 2 == 0 else cB).metric(PRETTY[k], pretty_int(latest_by_name[k]))
 
                 if es_propietario:
-                    del_flag_key = f"__confirm_del_{d['id']}"
-                    if st.button("❌ Eliminar", key=f"del_{d['id']}", use_container_width=True):
+                    del_flag_key = f"__confirm_del_{d['id']}_{username}"
+                    if st.button("❌ Eliminar", key=f"del_btn_{d['id']}_{username}", use_container_width=True):
                         st.session_state[del_flag_key] = True
 
                     if st.session_state.get(del_flag_key):
                         st.warning("Esta acción eliminará definitivamente el documento y sus métricas. ¿Confirmas?")
                         col_ok, col_cancel = st.columns(2)
-                        if col_ok.button("Sí, eliminar", key=f"ok_{d['id']}", use_container_width=True):
+                        if col_ok.button("Sí, eliminar", key=f"ok_{d['id']}_{username}", use_container_width=True):
                             try:
                                 r = requests.delete(f"{backend_url}/documents/{d['id']}", timeout=15)
                                 if r.ok and r.json().get("ok"):
@@ -1239,44 +870,13 @@ def mostrar_perfil(username, backend_url):
                                     st.rerun()
                             except:
                                 pass
-                        if col_cancel.button("Cancelar", key=f"cancel_{d['id']}", use_container_width=True):
+                        if col_cancel.button("Cancelar", key=f"cancel_{d['id']}_{username}", use_container_width=True):
                             st.session_state[del_flag_key] = False
                 else:
                     st.info("Solo el alumno puede eliminar sus documentos.")
     else:
         st.info("No hay documentos aún.")
 
-# =========================
-# Status
-# =========================
-def render_status(backend_url):
-    if "modelo_listo" not in st.session_state:
-        st.session_state["modelo_listo"] = False
-    if "status_progress" not in st.session_state:
-        st.session_state["status_progress"] = 0
-    if "status_message" not in st.session_state:
-        st.session_state["status_message"] = "⚡ Preparando…"
-
-    st.progress(st.session_state["status_progress"])
-
-    if st.session_state["modelo_listo"]:
-        st.success("✅ Modelo cargado y listo")
-        return
-
-    estado = fetch_status(backend_url, timeout=5)
-    st.session_state["modelo_listo"]  = bool(estado.get("modelo_listo"))
-    st.session_state["status_progress"] = int(estado.get("progress", 0))
-    st.session_state["status_message"]  = estado.get("message", "")
-    st.info(st.session_state["status_message"] or "⚡ Cargando…")
-
-    if st.button("🔄 Actualizar estado", key="btn_status_refresh_main", use_container_width=True):
-        estado = fetch_status(backend_url, timeout=5)
-        st.session_state["modelo_listo"]  = bool(estado.get("modelo_listo"))
-        st.session_state["status_progress"] = int(estado.get("progress", 0))
-        st.session_state["status_message"]  = estado.get("message", "")
-
-    st.stop()
-    
 def mostrar_repaso():
     st.markdown("""
     <style>
@@ -1423,7 +1023,7 @@ def mostrar_gimnasio(backend_url, username):
         
         cols = st.columns(len(pregunta_actual['opciones']))
         for i, opcion in enumerate(pregunta_actual['opciones']):
-            if cols[i].button(opcion, key=f"btn_{st.session_state.gym_index}_{i}", use_container_width=True):
+            if cols[i].button(opcion, key=f"btn_gym_{st.session_state.gym_index}_{i}", use_container_width=True):
                 if opcion == pregunta_actual['correcta']:
                     st.toast("¡Correcto! 🎉", icon="✅")
                     st.session_state.gym_score += 1
@@ -1470,7 +1070,7 @@ def mostrar_gimnasio(backend_url, username):
         else:
             st.markdown("<div class='gym-card' style='background: linear-gradient(135deg, #fee2e2, #fecaca);'>", unsafe_allow_html=True)
             st.markdown("<h2 style='color: #b91c1c;'>¡Sigue practicando! 💪</h2>", unsafe_allow_html=True)
-            st.markdown(f"<h1 style='color: #991b1b;'>{score} / {total}</h1>", unsafe_allow_html=True)
+            st.markdown(f"<h1>{score} / {total}</h1>", unsafe_allow_html=True)
             st.markdown("</div>", unsafe_allow_html=True)
             
             st.info("💡 Hemos detectado varios fallos. ¡Un pequeño repaso a la teoría te vendrá genial!")
@@ -1488,6 +1088,34 @@ def mostrar_gimnasio(backend_url, username):
                     st.session_state.nav_actual = "Repaso"
                     st.session_state.gym_estado = "configuracion"
                     st.rerun()
+
+def render_status(backend_url):
+    if "modelo_listo" not in st.session_state:
+        st.session_state["modelo_listo"] = False
+    if "status_progress" not in st.session_state:
+        st.session_state["status_progress"] = 0
+    if "status_message" not in st.session_state:
+        st.session_state["status_message"] = "⚡ Preparando…"
+
+    st.progress(st.session_state["status_progress"])
+
+    if st.session_state["modelo_listo"]:
+        st.success("✅ Modelo cargado y listo")
+        return
+
+    estado = fetch_status(backend_url, timeout=5)
+    st.session_state["modelo_listo"]  = bool(estado.get("modelo_listo"))
+    st.session_state["status_progress"] = int(estado.get("progress", 0))
+    st.session_state["status_message"]  = estado.get("message", "")
+    st.info(st.session_state["status_message"] or "⚡ Cargando…")
+
+    if st.button("🔄 Actualizar estado", key="btn_status_refresh_main", use_container_width=True):
+        estado = fetch_status(backend_url, timeout=5)
+        st.session_state["modelo_listo"]  = bool(estado.get("modelo_listo"))
+        st.session_state["status_progress"] = int(estado.get("progress", 0))
+        st.session_state["status_message"]  = estado.get("message", "")
+
+    st.stop()
 
 # =========================
 # Main app
@@ -1521,7 +1149,6 @@ def main_app():
         """, unsafe_allow_html=True)
 
         if es_admin:
-            # SIDEBAR PROFESOR (ADMIN)
             c_ava, c_name = st.sidebar.columns([1.2, 2.5], gap="small")
             with c_ava:
                 st.markdown("<div style='font-size: 3.5rem; text-align: center; height: 85px; display: flex; align-items: center; justify-content: center;'>👨‍🏫</div>", unsafe_allow_html=True)
@@ -1536,13 +1163,11 @@ def main_app():
             opciones_admin = [("👥 Mis Alumnos", "Alumnos"), ("📊 Métricas de Clase", "Metricas")]
             for etiqueta, valor in opciones_admin:
                 tipo_boton = "primary" if st.session_state.nav_actual == valor else "secondary"
-                if st.sidebar.button(etiqueta, type=tipo_boton, key=f"nav_{valor}", use_container_width=True):
+                if st.sidebar.button(etiqueta, type=tipo_boton, key=f"nav_admin_{valor}", use_container_width=True):
                     st.session_state.nav_actual = valor
                     st.session_state.admin_view_student = None 
                     st.rerun()
-
         else:
-            # SIDEBAR ALUMNO (NORMAL)
             st.markdown("""
             <style>
             [data-testid="stSidebar"] [data-testid="column"]:nth-child(1) div.stButton button {
@@ -1563,7 +1188,7 @@ def main_app():
 
             c_ava, c_name = st.sidebar.columns([1.2, 2.5], gap="small")
             with c_ava:
-                if st.button(st.session_state['mi_avatar'], key="btn_top_avatar"):
+                if st.button(st.session_state['mi_avatar'], key="btn_top_avatar_user"):
                     st.session_state.nav_actual = "Mi Perfil"
                     st.rerun()
             with c_name:
@@ -1585,17 +1210,16 @@ def main_app():
 
             for etiqueta, valor in opciones_menu:
                 tipo_boton = "primary" if st.session_state.nav_actual == valor else "secondary"
-                if st.sidebar.button(etiqueta, type=tipo_boton, key=f"nav_{valor}", use_container_width=True):
+                if st.sidebar.button(etiqueta, type=tipo_boton, key=f"nav_user_{valor}", use_container_width=True):
                     st.session_state.nav_actual = valor
                     st.rerun()
 
             st.sidebar.markdown("<div class='sidebar-divider'></div>", unsafe_allow_html=True)
-            if st.sidebar.button("🧹 Limpiar análisis", use_container_width=True, key="btn_limpiar"):
+            if st.sidebar.button("🧹 Limpiar análisis", use_container_width=True, key="btn_limpiar_user"):
                 clear_current_analysis()
                 st.rerun()
 
-        # Botón de Cerrar Sesión
-        if st.sidebar.button("🔚 Cerrar sesión", use_container_width=True, key="btn_cerrar"):
+        if st.sidebar.button("🔚 Cerrar sesión", use_container_width=True, key="btn_cerrar_sesion"):
             try: requests.post(f"{backend_url}/users/logout", data={"username": usuario}, timeout=5)
             except: pass
             st.session_state["logged_in"] = False
@@ -1609,11 +1233,11 @@ def main_app():
     else:
         st.sidebar.write("No has iniciado sesión.")
         colL, colC = st.sidebar.columns(2)
-        if colL.button("🔓 Iniciar sesión"):
+        if colL.button("🔓 Iniciar sesión", key="btn_init_sesion"):
             st.session_state["show_login"] = True
             st.session_state["show_create_account"] = False
             st.rerun()
-        if colC.button("📝 Crear cuenta"):
+        if colC.button("📝 Crear cuenta", key="btn_crear_cuenta"):
             st.session_state["show_create_account"] = True
             st.session_state["show_login"] = False
             st.rerun()
@@ -1672,25 +1296,22 @@ def main_app():
 
     st.markdown("<h2 class='h-section'>Modo de corrección</h2>", unsafe_allow_html=True)
     def on_mode_change(): st.session_state["last_input_digest"] = None
-    mode_label = st.radio(" ", list(MODE_OPTIONS.keys()), on_change=on_mode_change, horizontal=False, label_visibility="collapsed")
+    mode_label = st.radio(" ", list(MODE_OPTIONS.keys()), on_change=on_mode_change, horizontal=False, label_visibility="collapsed", key="radio_mode")
     selected_mode = MODE_OPTIONS[mode_label]
     st.caption(f"Modo seleccionado: **{selected_mode}**")
 
     st.markdown("<h2 class='h-section'>Fuente de entrada</h2>", unsafe_allow_html=True)
-    modo_entrada = st.radio(" ", ["Subir PDF", "Escribir texto"], horizontal=True, label_visibility="collapsed")
+    modo_entrada = st.radio(" ", ["Subir PDF", "Escribir texto"], horizontal=True, label_visibility="collapsed", key="radio_entrada")
 
     texto_plano = uploaded_file = file_bytes = digest = None
 
-    if "last_input_digest" not in st.session_state:
-        st.session_state["last_input_digest"] = None
-    if "last_doc_id" not in st.session_state:
-        st.session_state["last_doc_id"] = None
-    if "last_analysis" not in st.session_state:
-        st.session_state["last_analysis"] = None
+    if "last_input_digest" not in st.session_state: st.session_state["last_input_digest"] = None
+    if "last_doc_id" not in st.session_state: st.session_state["last_doc_id"] = None
+    if "last_analysis" not in st.session_state: st.session_state["last_analysis"] = None
 
     if modo_entrada == "Subir PDF":
         st.markdown("<h2 class='h-section'>Sube tu PDF</h2>", unsafe_allow_html=True)
-        uploaded_file = st.file_uploader("", type=["pdf"], label_visibility="collapsed")
+        uploaded_file = st.file_uploader("", type=["pdf"], label_visibility="collapsed", key="pdf_uploader")
 
         if uploaded_file is not None:
             file_bytes = uploaded_file.getvalue()
@@ -1725,7 +1346,7 @@ def main_app():
         if "." not in nombre_doc_norm: nombre_doc_norm += ".txt"
 
         col_a, col_b = st.columns([1, 3])
-        if col_a.button("Analizar texto"):
+        if col_a.button("Analizar texto", key="btn_analizar_texto"):
             if not texto_plano or not texto_plano.strip():
                 st.warning("Escribe algún texto antes de analizar.")
             else:
@@ -1811,11 +1432,11 @@ def main_app():
 
         edited_text = st.text_area("Tu versión final", key="edited_text_area", height=300, on_change=_save_user_changes_callback)
 
-        if st.button("📅 Descargar PDF corregido"):
+        if st.button("📅 Descargar PDF corregido", key="btn_download_pdf"):
             base = (st.session_state.get("last_pdf_name") or "Texto_Corregido").rsplit(".", 1)[0]
             pdf_filename = save_text_as_pdf(edited_text, filename=f"{base}.pdf")
             with open(pdf_filename, "rb") as file:
-                st.download_button("Descargar el PDF", file, file_name=pdf_filename, mime="application/pdf")
+                st.download_button("Descargar el PDF", file, file_name=pdf_filename, mime="application/pdf", key="btn_download_final")
     else:
         st.info("No hay análisis activo. Sube un PDF o escribe texto y pulsa “Analizar texto”.")
 
