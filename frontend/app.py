@@ -952,7 +952,7 @@ def mostrar_perfil(username, backend_url):
             with st.expander("Cambiar Avatar", expanded=False):
                 avatares = ['🐼', '🦊', '🐱', '🐶', '🦄', '🐸', '🦉', '🐙', '🦁', '🐻', '🐵', '🐮']
                 idx = avatares.index(perfil.get("avatar")) if perfil.get("avatar") in avatares else 0
-                nuevo_avatar = st.selectbox("Elige tu nuevo avatar", avatares, index=idx, key="sel_avatar_profile")
+                nuevo_avatar = st.selectbox("Elige tu nuevo avatar", avatares, index=idx, key=f"sel_avatar_{username}")
                 if st.button("Guardar Avatar", use_container_width=True):
                     requests.post(f"{backend_url}/users/{username}/avatar", data={"avatar": nuevo_avatar})
                     st.session_state["mi_avatar"] = nuevo_avatar  
